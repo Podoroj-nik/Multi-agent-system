@@ -1,114 +1,13 @@
-import os
+
+#  ВНИМАНИЕ, ЭТО ФАЙЛ ДЛЯ ТЕСТОВ БЕКЕНДА
+
 import requests
-import json
 
-class YandexGPTAgent:
-    def __init__(self, folder_id, api_key, name, system_prompt):
-        self.folder_id = folder_id
-        self.api_key = api_key
-        self.name = name
-        self.system_prompt = system_prompt
-        self.url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
-
-    def run(self, user_input):
-        payload = {
-            "modelUri": f"gpt://{self.folder_id}/yandexgpt/latest",
-            "completionOptions": {"stream": False, "temperature": 0.3, "maxTokens": "2000"},
-            "messages": [
-                {"role": "system", "text": self.system_prompt},
-                {"role": "user", "text": user_input}
-            ]
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Api-Key {self.api_key}"
-        }
-
-        try:
-            response = requests.post(self.url, headers=headers, json=payload)
-            response.raise_for_status()
-            result = response.json()['result']['alternatives'][0]['message']['text']
-            return result
-        except Exception as e:
-            return f"Ошибка агента {self.name}: {str(e)}"
-
-
-def run_project_pipeline(project_description):
-
-    with open(gitignore_path, "r") as f:
-        data = f.readlines()
-        FOLDER_ID = (data[0].split('=')[-1]).strip()
-        API_KEY = (data[1].split('=')[-1]).strip()
-
-    with open(prompts_path, "r", encoding='utf-8') as pr:
-        prompts = json.load(pr)
-
-    # 1. Агент-Скорер
-    scorer = YandexGPTAgent(FOLDER_ID, API_KEY, "Scorer", prompts["scorer"])
-
-    # 2. Агент-Исследователь
-    researcher = YandexGPTAgent(FOLDER_ID, API_KEY, "Researcher", prompts["researcher"])
-
-    # 3. Агент-Администратор
-    admin = YandexGPTAgent(FOLDER_ID, API_KEY, "Admin", prompts["admin"])
-
-    # 4. Агент-HR
-    hr_manager = YandexGPTAgent(FOLDER_ID, API_KEY, "HR", prompts["hr_manager"])
-
-    # 5. Агент-DevOps
-    devops = YandexGPTAgent(FOLDER_ID, API_KEY, "DevOps", prompts["devops"])
-
-    # 6. Агент-Секретарь
-    secretary = YandexGPTAgent(FOLDER_ID, API_KEY, "Secretary", prompts["secretary"])
-
-
-    print("🚀 Запуск анализа проекта...\n")
-
-    # 1. Оценка
-    score_res = scorer.run(project_description)
-    print(f"📊 [Scorer]:\n{score_res}\n")
-
-    print('=' * 69)
-
-    # 2. Анализ рынка
-    market_res = researcher.run(f"Проект: {project_description}")
-    print(f"🔍 [Researcher]:\n{market_res}\n")
-
-    print('=' * 69)
-
-    # 3. Планирование задач
-    tasks_res = admin.run(f"Создай задачи для проекта: {project_description}. Контекст рынка: {market_res}")
-    print(f"📅 [Admin]:\n{tasks_res}\n")
-
-    print('=' * 69)
-
-    # 4. Команда
-    team_res = hr_manager.run(f"Проект: {project_description}. Задачи: {tasks_res}")
-    print(f"👥 [HR]:\n{team_res}\n")
-
-    print('=' * 69)
-
-    # 5. Инфраструктура
-    infra_res = devops.run(f"Стек проекта: {project_description}. Масштаб из анализа: {market_res}")
-    print(f"☁️ [DevOps]:\n{infra_res}\n")
-
-    print('=' * 69)
-
-    # 6. Финальный отчет
-    all_logs = f"Scores: {score_res}\nTasks: {tasks_res}\nInfra: {infra_res}"
-    summary = secretary.run(f"Логи системы:\n{all_logs}")
-    print(f"📢 [Telegram Summary]:\n{summary}")
-
-
-BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-gitignore_path = os.path.join(DATA_DIR, ".gitignore")
-prompts_path = os.path.join(DATA_DIR, "prompts.json")
-
-
-# Тестовый запуск
-if __name__ == "__main__":
-    description = """🧠 Название проекта
+response = requests.post(
+    "http://localhost:8000/process_step",
+    json={
+        "step_index": 0,  # 0=scorer, 1=researcher, 2=admin, 3=hr_manager, 4=devops, 5=secretary
+        "project_description": """🧠 Название проекта
 
 «ЛогоТрек: ИИ-диагностика дислексии и дискалькулии по рукописным и устным ответам школьников»
 
@@ -228,6 +127,15 @@ text
 
     Помочь с календарным планом (Gantt) и бюджетом Yandex Cloud.
 
-    Сформулировать метрики успеха (например, чувствительность >85%, специфичность >80% на валидационной выборке)."""
+    Сформулировать метрики успеха (например, чувствительность >85%, специфичность >80% на валидационной выборке).""",
+    "user_feedback": "Социальнаая значимость должна быть 4, потому что это не очень важный проект",
+    "previous_agents_context": """{'result': '```\n{\n  "scores": {\n    "Социальная значимость": 5,\n    "Техническая реализуемость": 4,\n    "Инновационность": 5,\n    "Масштаб": 4,\n    "Стратегия": 4\n  },\n  "justification": {\n    "Социальная значимость": "Проект решает важную социальную проблему — раннюю диагностику дислексии и дискалькулии, что может значительно улучшить качество образования для детей с этими расстройствами.",\n    "Техническая реализуемость": "Проект использует современные технологии (компьютерное зрение, обработка естественного языка), которые уже доказали свою эффективность. Однако требуется детальная проработка алгоритмов и моделей.",\n    "Инновационность": "Проект предлагает новый подход к диагностике дислексии и дискалькулии, объединяя анализ рукописного текста и устной речи. Это уникальное решение, которое может стать важным шагом в развитии ИИ в образовании.",\n    "Масштаб": "Проект может быть масштабирован на все школы России, что позволит провести массовый скрининг и выявить детей с расстройствами на ранних стадиях.",\n    "Стратегия": "Проект имеет чёткую стратегию разработки и внедрения, включая сбор данных, обучение моделей, интеграцию с образовательной системой и публикацию результатов."\n  },\n  "average_score": 4.4,\n  "missing_info_questions": [\n    "Какие конкретные метрики успеха будут использоваться для оценки эффективности системы?",\n    "Как будет обеспечиваться конфиденциальность и безопасность данных детей?",\n    "Какие планы по интеграции системы с существующими образовательными платформами?"\n  ]\n}\n```'}
+"""
+    }
+)
+print(response.json())
 
-    run_project_pipeline(description)
+
+# cd C:\Users\nikit\PycharmProjects\Multi-agent-system
+# .venv\Scripts\activate
+# python src/req.py
