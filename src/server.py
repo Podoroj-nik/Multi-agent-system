@@ -5,6 +5,8 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from src.pipeline import YandexGPTAgent
 
+from fastapi.middleware.cors import CORSMiddleware
+
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 DATA_DIR = os.path.join(BASE_DIR, "data")
@@ -12,6 +14,15 @@ gitignore_path = os.path.join(DATA_DIR, ".gitignore")
 prompts_path = os.path.join(DATA_DIR, "prompts.json")
 
 app = FastAPI()
+
+#  Разрешаем запросы с любого адреса (для разработки)
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 with open(prompts_path, "r", encoding='utf-8') as pr:
     prompts = json.load(pr)
