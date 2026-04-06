@@ -1,0 +1,4 @@
+requests==2.33.1
+
+
+# pip install -r data/requirements.txt
