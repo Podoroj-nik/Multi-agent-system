@@ -2,5 +2,11 @@ requests==2.33.1
 fastapi==0.135.3
 pydantic==2.13.0b3
 uvicorn==0.44.0
+langchain==1.2.15
+langgraph==1.1.6
+langchain_community==1.0.0a1
+grpcio==1.80.0
+grpci-tools==1.80.0
+yandexcloud==0.385.0
 
 # pip install -r data/requirements.txt

@@ -1,233 +1,142 @@
 import os
-import requests
-import json
-
-class YandexGPTAgent:
-    def __init__(self, folder_id, api_key, name, system_prompt):
-        self.folder_id = folder_id
-        self.api_key = api_key
-        self.name = name
-        self.system_prompt = system_prompt
-        self.url = "https://llm.api.cloud.yandex.net/foundationModels/v1/completion"
-
-    def run(self, user_input):
-        payload = {
-            "modelUri": f"gpt://{self.folder_id}/yandexgpt/latest",
-            "completionOptions": {"stream": False, "temperature": 0.3, "maxTokens": "2000"},
-            "messages": [
-                {"role": "system", "text": self.system_prompt},
-                {"role": "user", "text": user_input}
-            ]
-        }
-        headers = {
-            "Content-Type": "application/json",
-            "Authorization": f"Api-Key {self.api_key}"
-        }
-
-        try:
-            response = requests.post(self.url, headers=headers, json=payload)
-            response.raise_for_status()
-            result = response.json()['result']['alternatives'][0]['message']['text']
-            return result
-        except Exception as e:
-            return f"Ошибка агента {self.name}: {str(e)}"
-
-
-def run_project_pipeline(project_description):
-
-    with open(gitignore_path, "r") as f:
-        data = f.readlines()
-        FOLDER_ID = (data[0].split('=')[-1]).strip()
-        API_KEY = (data[1].split('=')[-1]).strip()
-
-    with open(prompts_path, "r", encoding='utf-8') as pr:
-        prompts = json.load(pr)
-
-    # 1. Агент-Скорер
-    scorer = YandexGPTAgent(FOLDER_ID, API_KEY, "Scorer", prompts["scorer"])
-
-    # 2. Агент-Исследователь
-    researcher = YandexGPTAgent(FOLDER_ID, API_KEY, "Researcher", prompts["researcher"])
-
-    # 3. Агент-Администратор
-    admin = YandexGPTAgent(FOLDER_ID, API_KEY, "Admin", prompts["admin"])
-
-    # 4. Агент-HR
-    hr_manager = YandexGPTAgent(FOLDER_ID, API_KEY, "HR", prompts["hr_manager"])
-
-    # 5. Агент-DevOps
-    devops = YandexGPTAgent(FOLDER_ID, API_KEY, "DevOps", prompts["devops"])
-
-    # 6. Агент-Секретарь
-    secretary = YandexGPTAgent(FOLDER_ID, API_KEY, "Secretary", prompts["secretary"])
-
-
-    print("🚀 Запуск анализа проекта...\n")
-
-    # 1. Оценка
-    score_res = scorer.run(project_description)
-    print(f"📊 [Scorer]:\n{score_res}\n")
-
-    print('=' * 69)
-
-    # 2. Анализ рынка
-    market_res = researcher.run(f"Проект: {project_description}")
-    print(f"🔍 [Researcher]:\n{market_res}\n")
-
-    print('=' * 69)
-
-    # 3. Планирование задач
-    tasks_res = admin.run(f"Создай задачи для проекта: {project_description}. Контекст рынка: {market_res}")
-    print(f"📅 [Admin]:\n{tasks_res}\n")
-
-    print('=' * 69)
-
-    # 4. Команда
-    team_res = hr_manager.run(f"Проект: {project_description}. Задачи: {tasks_res}")
-    print(f"👥 [HR]:\n{team_res}\n")
-
-    print('=' * 69)
-
-    # 5. Инфраструктура
-    infra_res = devops.run(f"Стек проекта: {project_description}. Масштаб из анализа: {market_res}")
-    print(f"☁️ [DevOps]:\n{infra_res}\n")
-
-    print('=' * 69)
-
-    # 6. Финальный отчет
-    all_logs = f"Scores: {score_res}\nTasks: {tasks_res}\nInfra: {infra_res}"
-    summary = secretary.run(f"Логи системы:\n{all_logs}")
-    print(f"📢 [Telegram Summary]:\n{summary}")
-
+from datetime import datetime
+from typing import TypedDict
+from langgraph.graph import StateGraph, START, END
+from langchain_community.chat_models import ChatYandexGPT
+from langchain_core.messages import SystemMessage, HumanMessage
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-DATA_DIR = os.path.join(BASE_DIR, "data")
-gitignore_path = os.path.join(DATA_DIR, ".gitignore")
-prompts_path = os.path.join(DATA_DIR, "prompts.json")
 
+# --- 1. Определение состояния ---
+class AgentState(TypedDict):
+    project_description: str
+    chat_history: str
+    last_ai_message: str
+    command: str  # "ask" или "search"
+    research_optimist: str
+    research_pessimist: str
+    research_neutral: str
+    final_research: str
+    technical_plan: str
 
-# Тестовый запуск
-if __name__ == "__main__":
-    description = """🧠 Название проекта
+# --- 2. Функция сборки графа ---
+def build_agent_graph(folder_id: str, api_key: str):
+    # Инициализация LLM внутри фабрики
+    llm = ChatYandexGPT(
+        api_key=api_key,
+        folder_id=folder_id,
+        model_uri=f"gpt://{folder_id}/yandexgpt/latest",
+        temperature=0.3
+    )
 
-«ЛогоТрек: ИИ-диагностика дислексии и дискалькулии по рукописным и устным ответам школьников»
+    def get_full_context(state: AgentState) -> str:
+        return f"Описание проекта: {state['project_description']}\nИстория уточнений: {state['chat_history']}"
 
-    Краткая суть: Платформа на базе компьютерного зрения и обработки естественного языка (NLU) в Yandex Cloud, которая по рукописным текстам, математическим записям и устной речи учеников 1–6 классов выявляет ранние признаки дислексии, дискалькулии и смешанных расстройств обучения с точностью не ниже 85%.
+    # --- Узлы агентов ---
+    def scorer_node(state: AgentState):
+        prompt = "Ты — аналитик. Задай ОДИН критический вопрос по проекту. Без вступлений."
+        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=get_full_context(state))])
+        return {"last_ai_message": msg.content}
 
-🎯 Актуальность и социальная значимость
+    def optimist_node(state: AgentState):
+        prompt = (
+            "Ты — Ведущий Стратег-Оптимист. Твоя задача — составить максимально подробный отчет о потенциальном успехе проекта. "
+            "Используй свои инструменты поиска Яндекса для анализа рынков 2024-2025 гг.\n\n"
+            "СТРУКТУРА ОТЧЕТА (минимум 3000 слов):\n"
+            "1. Анализ глобальных и локальных трендов.\n"
+            "2. Подробный разбор 5+ точек взрывного роста (Scale-up).\n"
+            "3. Анализ потенциальной синергии с экосистемами.\n"
+            "4. Прогноз капитализации и социального эффекта на 5 лет.\n"
+            "5. Список 'быстрых побед' (Quick Wins).\n\n"
+            "Пиши максимально развернуто, используй терминологию и данные из поиска."
+        )
+        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=get_full_context(state))])
+        return {"research_optimist": msg.content}
 
-    В России до 15% детей имеют дислексию или дискалькулию, но 80% из них не диагностируются до 3–4 класса, когда формируется вторичная школьная неуспеваемость.
+    def pessimist_node(state: AgentState):
+        prompt = (
+            "Ты — Главный Риск-Менеджер и Аудитор. Твоя задача — найти все скрытые камни. "
+            "Используй поиск Яндекса для поиска негативных кейсов, судебной практики и регуляторных барьеров.\n\n"
+            "СТРУКТУРА ОТЧЕТА (минимум 3000 слов):\n"
+            "1. Детальный разбор юридических и регуляторных рисков.\n"
+            "2. Глубокий анализ конкурентной среды.\n"
+            "3. Технологические риски.\n"
+            "4. 'Черные лебеди': сценарии полной остановки проекта.\n"
+            "5. Критика бизнес-модели.\n\n"
+            "Не жалей проект, будь максимально дотошным."
+        )
+        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=get_full_context(state))])
+        return {"research_pessimist": msg.content}
 
-    Нейропсихологов и логопедов в школах катастрофически не хватает (1 специалист на 500–1000 учеников).
+    def neutral_node(state: AgentState):
+        prompt = (
+            "Ты — Глава Аналитического Департамента. Твоя задача — сухие цифры, ссылки и факты. "
+            "Используй поиск Яндекса для сбора Big Data по теме.\n\n"
+            "СТРУКТУРА ОТЧЕТА (минимум 3000 слов):\n"
+            "1. Объем рынка в цифрах (TAM, SAM, SOM).\n"
+            "2. Сравнительная таблица характеристик существующих решений.\n"
+            "3. Статистика запросов и интерес аудитории.\n"
+            "4. Технологический стек конкурентов.\n"
+            "5. Справочник терминов и нормативная база.\n\n"
+            "Только данные. Никаких оценок."
+        )
+        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=get_full_context(state))])
+        return {"research_neutral": msg.content}
 
-    Существующие методы диагностики — ручные, дорогие и субъективные. ИИ-инструмент может стать скрининговым для всех школ бесплатно.
+    def synthesizer_node(state: AgentState):
+        prompt = (
+            "Ты — Главный Исполнительный Директор (CEO). Твоя задача — создать ЕДИНЫЙ МАСТЕР-ДОКУМЕНТ. "
+            "Интегрируй данные Оптимиста, Критика и Фактолога.\n\n"
+            "ТРЕБОВАНИЯ:\n"
+            "- Объем: Максимально возможный.\n"
+            "- Формат: Профессиональный Markdown с таблицами и списками.\n"
+            "- Секции: Стратегическое резюме, Обоснование рынка, План нейтрализации рисков, Дорожная карта."
+        )
+        combined = f"ОПТИМИСТ: {state['research_optimist']}\n\nКРИТИК: {state['research_pessimist']}\n\nФАКТОЛОГ: {state['research_neutral']}"
+        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=combined)])
+        return {"final_research": msg.content}
 
-🔬 Междисциплинарность (медицина + ИИ + образование)
-Компонент	Что делает
-Медицина	Нейропсихологические маркеры: зеркальное написание букв, пропуски, перестановки, ошибки порядка цифр, нестабильный почерк, фонологическая нечёткость.
-ИИ (компьютерное зрение)	Анализ рукописных текстов и примеров по математике (на базе Yandex Vision + дообученные модели).
-ИИ (речь)	Анализ устного чтения и называния цифр (Yandex SpeechKit + кастомные классификаторы).
-Образование	Интеграция со школьной программой, отчёт для учителя и рекомендации для родителей.
-📋 Жизненный цикл проекта (по этапам Центра)
-1. Приём заявки и первичная оценка
+    def tech_group_node(state: AgentState):
+        msg = llm.invoke([SystemMessage(content="Опиши стек для Yandex Cloud и 3 этапа разработки."), HumanMessage(content=state['final_research'])])
+        return {"technical_plan": msg.content}
 
-    Подача заявки с описанием MVP: веб-интерфейс, загрузка фото тетради + аудио чтения → вероятностный диагноз.
+    # --- Сборка графа ---
+    workflow = StateGraph(AgentState)
+    workflow.add_node("scorer", scorer_node)
+    workflow.add_node("optimist", optimist_node)
+    workflow.add_node("pessimist", pessimist_node)
+    workflow.add_node("neutral", neutral_node)
+    workflow.add_node("synthesizer", synthesizer_node)
+    workflow.add_node("tech_group", tech_group_node)
 
-    Ожидаемый результат: одобрение как пилотного проекта на стыке медицины и образования.
+    def start_router(state: AgentState):
+        return ["optimist", "pessimist", "neutral"] if state["command"] == "search" else "scorer"
 
-2. Ресерч (научная часть)
+    workflow.add_conditional_edges(START, start_router)
+    workflow.add_edge("optimist", "synthesizer")
+    workflow.add_edge("pessimist", "synthesizer")
+    workflow.add_edge("neutral", "synthesizer")
+    workflow.add_edge("synthesizer", "tech_group")
+    workflow.add_edge("tech_group", END)
+    workflow.add_edge("scorer", END)
 
-    Сбор датасета: анонимизированные тетради и аудиозаписи детей с подтверждённым диагнозом (через партнёрство с ПМПК и логопедическими центрами) и без диагноза.
+    return workflow.compile()
 
-    Разметка нейропсихологами (не менее 10 000 образцов).
+# --- Логика сохранения ---
+def save_reports_locally(state: dict) -> str:
+    reports_dir = os.path.join(BASE_DIR, "reports")
+    os.makedirs(reports_dir, exist_ok=True)
+    timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
+    path = os.path.join(reports_dir, f"report_{timestamp}")
+    os.makedirs(path, exist_ok=True)
 
-    Определение ключевых признаков:
-    Для дислексии: замены (б↔д), зеркальность, побуквенное чтение.
-    Для дискалькулии: обратный порядок цифр, ошибки в счёте на пальцах, трудности с числовой прямой.
-
-3. Формирование команды
-
-    Руководитель (AI/ML инженер)
-
-    Врач-невролог / нейропсихолог (консультант)
-
-    Учитель начальных классов (эксперт по типичным ошибкам)
-
-    Разработчик на Python (FastAPI + Yandex Cloud)
-
-    ML-инженер (PyTorch, Yandex DataSphere)
-
-4. Выделение ресурсов в Yandex Cloud
-
-    Yandex Vision — для OCR и анализа структуры рукописного текста.
-
-    Yandex SpeechKit — для транскрипции и анализа просодики (паузы, запинки).
-
-    Yandex DataSphere — для обучения моделей классификации.
-
-    Yandex Object Storage — для хранения данных.
-
-    Yandex Compute Cloud — для инференса (GPU).
-
-5. Реализация (3–5 месяцев)
-
-    Прототип веб-приложения с тремя блоками:
-
-        Рукописный текст (скорость, зеркальность, пропуски).
-
-        Математика (ошибки порядка цифр, неверное копирование).
-
-        Устная речь (чтение короткого текста и называние чисел).
-
-    Итоговый отчёт: «Зелёная зона» (норма), «Жёлтая» (риск, нужен очный специалист), «Красная» (высокая вероятность расстройства).
-
-6. Публикация результатов
-
-    Научная статья в журнал (например, «Дефектология» или Frontiers in AI).
-
-    Открытый датасет (обезличенный) для сообщества.
-
-    Презентация на конференции Цифровая индустрия / EdCrunch.
-
-🤝 Партнёры (потенциальные)
-Тип	Конкретные организации
-Медицинские	Федеральный ресурсный центр по проблемам дислексии, ПМПК г. Москвы
-Образовательные	Школы с логопедическими пунктами, Центр психолого-педагогической поддержки
-Академические	МГППУ, Институт коррекционной педагогики РАО
-Технологические	Yandex Cloud for Good (грант на облачные ресурсы)
-💡 Чем этот проект НОВЫЙ?
-
-    Не просто проверка ответов (как в предыдущей идее), а медицинская диагностика по двум каналам (письмо + речь).
-
-    Никто в России не делает ИИ-диагностику дискалькулии — это белое пятно.
-
-    Использует не только OCR, но и пространственный анализ (расположение цифр в столбик, зеркальность) + фонетику.
-
-    После диагностики — рекомендации для педагогов (а не просто «ошибка»).
-
-📊 Пример вывода системы для учителя
-text
-
-📋 Результат скрининга: высокая вероятность дискалькулии (84%)
-
-🔍 Ключевые признаки:
-- Ошибки порядка цифр при записи многозначных чисел (12 вместо 21)
-- Зеркальное написание цифр 3, 5, 6
-- Трудности с числовой прямой: не может назвать соседей числа 38
-
-✅ Рекомендации:
-1. Направить к нейропсихологу для уточняющей диагностики
-2. Использовать визуальные опоры (числовые домики)
-3. Исключить двойную нагрузку (скорость письма + счёт)
-
-🚀 Следующие шаги для вас
-
-Если хотите подать заявку, я могу:
-
-    Написать текст заявки под формат Центра (проблема → решение → команда → ресурсы → измеримые результаты).
-
-    Помочь с календарным планом (Gantt) и бюджетом Yandex Cloud.
-
-    Сформулировать метрики успеха (например, чувствительность >85%, специфичность >80% на валидационной выборке)."""
-
-    run_project_pipeline(description)
+    files = {
+        "1_full_analysis.md": state.get('final_research', ''),
+        "2_tech_plan.md": state.get('technical_plan', ''),
+        "3_raw_research.md": f"# Оптимист\n{state.get('research_optimist', '')}\n\n# Критик\n{state.get('research_pessimist', '')}\n\n# Фактолог\n{state.get('research_neutral', '')}",
+        "context.md": f"Описание:\n{state.get('project_description', '')}\n\nИстория:\n{state.get('chat_history', '')}"
+    }
+    for name, content in files.items():
+        with open(os.path.join(path, name), "w", encoding="utf-8") as f:
+            f.write(content)
+    return path
