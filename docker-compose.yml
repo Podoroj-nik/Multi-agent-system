@@ -2,20 +2,18 @@ version: '3.8'
 
 services:
   backend:
-    build:
-      context: ./backend
-      dockerfile: Dockerfile
+    image: yourusername/ai-pm-backend:latest
     container_name: ai-pm-backend
+    restart: always
     ports:
       - "8000:8000"
     volumes:
-      - ./backend/data:/app/data
-      - ./backend/reports:/app/reports
+      - ./data:/app/data
+      - ./reports:/app/reports
     environment:
       - YANDEX_FOLDER_ID=${YANDEX_FOLDER_ID}
       - YANDEX_API_KEY=${YANDEX_API_KEY}
       - YANDEX_DISK_TOKEN=${YANDEX_DISK_TOKEN}
-    restart: unless-stopped
     networks:
       - ai-pm-network
     healthcheck:
@@ -25,15 +23,13 @@ services:
       retries: 3
 
   frontend:
-    build:
-      context: ./frontend
-      dockerfile: Dockerfile
+    image: yourusername/ai-pm-frontend:latest
     container_name: ai-pm-frontend
+    restart: always
     ports:
       - "80:80"
     depends_on:
       - backend
-    restart: unless-stopped
     networks:
       - ai-pm-network
 
