@@ -1,0 +1,33 @@
+# Файлы с секретами
+.env
+backend/data/.gitignore
+
+# Отчеты
+reports/
+backend/reports/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.venv/
+venv/
+ENV/
+
+# Node
+node_modules/
+build/
+dist/
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Проекты
+*.aipm
