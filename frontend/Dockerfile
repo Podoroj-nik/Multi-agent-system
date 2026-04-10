@@ -6,8 +6,8 @@ WORKDIR /app
 # Копируем файлы зависимостей
 COPY package*.json ./
 
-# Устанавливаем зависимости (используем ci для точной установки по lock-файлу)
-RUN npm ci --only=production
+# Устанавливаем зависимости (используем install вместо ci)
+RUN npm install --omit=dev
 
 # Копируем исходный код
 COPY public/ ./public/
@@ -25,8 +25,6 @@ COPY --from=build /app/build /usr/share/nginx/html
 # Копируем конфигурацию nginx
 COPY nginx.conf /etc/nginx/conf.d/default.conf
 
-# Открытие порта
 EXPOSE 80
 
-# Запуск nginx
 CMD ["nginx", "-g", "daemon off;"]
