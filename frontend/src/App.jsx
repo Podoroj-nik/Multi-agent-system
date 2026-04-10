@@ -103,6 +103,127 @@ const Tab = ({ id, label, icon, isActive, onClick }) => {
   );
 };
 
+// Стартовое окно
+const WelcomeScreen = ({ onStartNew, onOpenProject, onFileUpload }) => {
+  const fileInputRef = useRef(null);
+
+  return (
+    <div className="welcome-screen">
+      <div className="welcome-content">
+        <h1 className="welcome-title">
+          AI Project Manager Assistant
+        </h1>
+
+        <p className="welcome-subtitle">
+          Мультиагентная система для анализа и планирования IT-проектов
+        </p>
+
+        <div className="features-grid">
+          <div className="feature-card">
+            <div className="feature-icon">🔍</div>
+            <h3>Скоринг проекта</h3>
+            <p>AI-агент анализирует идею, задает уточняющие вопросы и помогает определить жизнеспособность проекта</p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon">🧠</div>
+            <h3>Мультиагентный анализ</h3>
+            <p>Три независимых агента (Оптимист, Критик, Фактолог) исследуют проект с разных точек зрения</p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon">📊</div>
+            <h3>Исследование рынка</h3>
+            <p>Автоматический поиск конкурентов, анализ рисков и формирование гипотез для MVP</p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon">🛠</div>
+            <h3>Технический план</h3>
+            <p>Создание детального плана реализации, подбор технологического стека и инфраструктуры</p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon">👥</div>
+            <h3>Формирование команды</h3>
+            <p>Генерация описаний вакансий и оценка необходимых ресурсов для реализации проекта</p>
+          </div>
+
+          <div className="feature-card">
+            <div className="feature-icon">☁️</div>
+            <h3>Сохранение в облаке</h3>
+            <p>Автоматическая выгрузка всех отчетов на Яндекс.Диск с удобной структурой хранения</p>
+          </div>
+        </div>
+
+        <div className="agents-section">
+          <h2>Команда AI-агентов</h2>
+          <div className="agents-list">
+            <div className="agent-item">
+              <span className="agent-emoji">🎯</span>
+              <div className="agent-info">
+                <strong>Скорер</strong>
+                <p>Помогает уточнить детали проекта через серию целенаправленных вопросов</p>
+              </div>
+            </div>
+            <div className="agent-item">
+              <span className="agent-emoji">🌟</span>
+              <div className="agent-info">
+                <strong>Оптимист</strong>
+                <p>Находит сильные стороны и потенциальные возможности проекта</p>
+              </div>
+            </div>
+            <div className="agent-item">
+              <span className="agent-emoji">⚠️</span>
+              <div className="agent-info">
+                <strong>Критик</strong>
+                <p>Выявляет риски, слабые места и потенциальные проблемы</p>
+              </div>
+            </div>
+            <div className="agent-item">
+              <span className="agent-emoji">📚</span>
+              <div className="agent-info">
+                <strong>Фактолог</strong>
+                <p>Предоставляет объективную информацию о рынке и технологиях</p>
+              </div>
+            </div>
+            <div className="agent-item">
+              <span className="agent-emoji">🔧</span>
+              <div className="agent-info">
+                <strong>Техническая группа</strong>
+                <p>Разрабатывает план реализации и технические рекомендации</p>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div className="welcome-actions">
+          <button className="welcome-btn primary" onClick={onStartNew}>
+            🚀 Начать новый проект
+          </button>
+          <button className="welcome-btn secondary" onClick={onOpenProject}>
+            📂 Открыть проект
+          </button>
+          <button className="welcome-btn secondary" onClick={() => fileInputRef.current?.click()}>
+            📄 Загрузить из .md
+          </button>
+          <input
+            type="file"
+            ref={fileInputRef}
+            onChange={onFileUpload}
+            accept=".md,.markdown"
+            style={{ display: 'none' }}
+          />
+        </div>
+
+        <p className="welcome-footer">
+          Система использует YandexGPT для анализа и генерации контента
+        </p>
+      </div>
+    </div>
+  );
+};
+
 function App() {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
@@ -115,6 +236,7 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [attachedFile, setAttachedFile] = useState(null);
   const [isNewProject, setIsNewProject] = useState(true);
+  const [showWelcome, setShowWelcome] = useState(true);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -164,7 +286,6 @@ function App() {
       }]
     }));
 
-    // Если это сообщение от пользователя, сбрасываем флаг нового проекта
     if (isUser) {
       setIsNewProject(false);
     }
@@ -275,7 +396,7 @@ function App() {
     if (!file) return;
 
     if (!file.name.endsWith('.md') && !file.name.endsWith('.markdown')) {
-      addMessage('❌ Пожалуйста, выберите файл с расширением .md или .markdown', false);
+      alert('Пожалуйста, выберите файл с расширением .md или .markdown');
       return;
     }
 
@@ -286,11 +407,12 @@ function App() {
         name: file.name,
         content: content
       });
+      setShowWelcome(false);
       addMessage(`📄 Файл "${file.name}" прикреплен. Введите ваш комментарий и отправьте сообщение.`, false);
     };
 
     reader.onerror = () => {
-      addMessage('❌ Ошибка при чтении файла', false);
+      alert('Ошибка при чтении файла');
     };
 
     reader.readAsText(file);
@@ -317,9 +439,7 @@ function App() {
     inputRef.current?.focus();
   };
 
-  // Экспорт проекта
   const handleExportProject = () => {
-    console.log('Export clicked');
     const projectData = {
       version: "1.0",
       exportedAt: new Date().toISOString(),
@@ -340,14 +460,12 @@ function App() {
     addMessage(`📦 Проект экспортирован: project_${timestamp}.aipm`, false);
   };
 
-  // Импорт проекта
   const handleImportProject = (event) => {
-    console.log('Import clicked');
     const file = event.target.files[0];
     if (!file) return;
 
     if (!file.name.endsWith('.aipm') && !file.name.endsWith('.json')) {
-      addMessage('❌ Пожалуйста, выберите файл с расширением .aipm или .json', false);
+      alert('Пожалуйста, выберите файл с расширением .aipm или .json');
       event.target.value = '';
       return;
     }
@@ -371,36 +489,33 @@ function App() {
           setReports(projectData.reports);
         }
 
-        // Проверяем, есть ли сообщения от пользователя
         const hasUserMessages = projectData.chatHistory?.some(item => item.role === 'user') || false;
         setIsNewProject(!hasUserMessages);
+        setShowWelcome(false);
 
         setActiveTab('chat');
         addMessage(`📂 Проект загружен: ${file.name}`, false);
       } catch (error) {
         console.error('Error importing project:', error);
-        addMessage('❌ Ошибка при импорте проекта. Неверный формат файла.', false);
+        alert('Ошибка при импорте проекта. Неверный формат файла.');
       }
     };
 
     reader.onerror = () => {
-      addMessage('❌ Ошибка при чтении файла проекта', false);
+      alert('Ошибка при чтении файла проекта');
     };
 
     reader.readAsText(file);
     event.target.value = '';
   };
 
-  // Начать новый проект
   const handleNewProject = () => {
-    console.log('New project clicked');
     if (hasRealProject()) {
       if (!window.confirm('Вы уверены? Текущий диалог будет очищен.')) {
         return;
       }
     }
 
-    // Полный сброс
     setMessages([]);
     setProjectContext({ chatHistory: [] });
     setReports(null);
@@ -408,8 +523,8 @@ function App() {
     setAttachedFile(null);
     setInputValue('');
     setIsNewProject(true);
+    setShowWelcome(false);
 
-    // Добавляем приветственное сообщение
     const timestamp = new Date().toLocaleTimeString('ru-RU', {
       hour: '2-digit',
       minute: '2-digit'
@@ -432,17 +547,45 @@ function App() {
     });
   };
 
+  const handleStartFromWelcome = () => {
+    setShowWelcome(false);
+    handleNewProject();
+  };
+
+  const handleOpenFromWelcome = () => {
+    setShowWelcome(false);
+    setTimeout(() => {
+      projectFileInputRef.current?.click();
+    }, 100);
+  };
+
+  const handleFileFromWelcome = (event) => {
+    handleFileUpload(event);
+    if (event.target.files[0]) {
+      setShowWelcome(false);
+    }
+  };
+
   const tabs = [
     { id: 'chat', label: 'Чат', icon: '💬' },
-    { id: 'reports', label: 'Отчеты', icon: '📈' },
-    { id: 'tasks', label: 'Задачи', icon: '☑️' }
+    { id: 'reports', label: 'Отчеты', icon: '📊' },
+    { id: 'tasks', label: 'Задачи', icon: '✅' }
   ];
 
   const hasProject = hasRealProject();
 
+  if (showWelcome) {
+    return (
+      <WelcomeScreen
+        onStartNew={handleStartFromWelcome}
+        onOpenProject={handleOpenFromWelcome}
+        onFileUpload={handleFileFromWelcome}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
-      {/* Скрытые input для загрузки файлов */}
       <input
         type="file"
         ref={fileInputRef}
