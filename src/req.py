@@ -1,32 +1,21 @@
 import requests
 
-URL = "http://127.0.0.1:8000/api/process"
+TOKEN = "y0__xCh9ZTXAxjYl0Agqo6thBcw7J3p2gcQhgJofM7rEZWDZhlOFsLJPs8vqg"
 
-description = "Платформа для диагностики дислексии..." # Твое полное описание
-chat_history = "Вопрос: Как планируется защищать данные?\nОтвет: Через защищенный контур."
+headers = {
+    "Authorization": f"OAuth {TOKEN}",
+    "Content-Type": "application/json"
+}
 
-# ТЕСТ 1: Имитация диалога (command = "ask")
-print("Отправляем запрос Скорреру...")
-resp_ask = requests.post(URL, json={
-    "project_description": description,
-    "chat_history": chat_history,
-    "command": "ask"
-})
-print("Ответ Скоррера:", resp_ask.json())
+# Проверка соединения
+response = requests.get("https://cloud-api.yandex.net/v1/disk", headers=headers)
+print(f"Статус: {response.status_code}")
 
-
-# ТЕСТ 2: Имитация нажатия кнопки "Перейти к поиску" (command = "search")
-print("\nЗапускаем консилиум агентов (может занять время)...")
-resp_search = requests.post(URL, json={
-    "project_description": description,
-    "chat_history": chat_history,
-    "command": "search"
-})
-data = resp_search.json()
-print("Статус:", data.get("status"))
-print("Сохранено в:", data.get("saved_path"))
-
-
-# cd C:\Users\nikit\PycharmProjects\Multi-agent-system
-# .venv\Scripts\activate
-# python src/req.py
+if response.status_code == 200:
+    data = response.json()
+    print(f"✅ Токен работает!")
+    print(f"Пользователь: {data.get('user', {}).get('display_name', 'Неизвестно')}")
+    print(f"Всего места: {data.get('total_space', 0) // (1024**3)} ГБ")
+    print(f"Свободно: {data.get('free_space', 0) // (1024**3)} ГБ")
+else:
+    print(f"❌ Ошибка: {response.text}")
