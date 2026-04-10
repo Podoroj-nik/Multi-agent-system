@@ -1,4 +1,5 @@
 import os
+import json
 from datetime import datetime
 from typing import TypedDict
 from langgraph.graph import StateGraph, START, END
@@ -6,6 +7,9 @@ from langchain_community.chat_models import ChatYandexGPT
 from langchain_core.messages import SystemMessage, HumanMessage
 
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+
+# Указываем путь к prompts.json в папке data
+PROMPTS_PATH = os.path.join(BASE_DIR, "data", "prompts.json")
 
 # --- 1. Определение состояния ---
 class AgentState(TypedDict):
@@ -19,9 +23,22 @@ class AgentState(TypedDict):
     final_research: str
     technical_plan: str
 
+
+# --- Помощник для загрузки промптов ---
+def load_prompts():
+    try:
+        with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except FileNotFoundError:
+        print(f"Ошибка: Файл {PROMPTS_PATH} не найден.")
+        return {}
+
+
 # --- 2. Функция сборки графа ---
 def build_agent_graph(folder_id: str, api_key: str):
-    # Инициализация LLM внутри фабрики
+    # Загружаем промпты один раз при сборке графа
+    prompts = load_prompts()
+
     llm = ChatYandexGPT(
         api_key=api_key,
         folder_id=folder_id,
@@ -34,70 +51,50 @@ def build_agent_graph(folder_id: str, api_key: str):
 
     # --- Узлы агентов ---
     def scorer_node(state: AgentState):
-        prompt = "Ты — аналитик. Задай ОДИН критический вопрос по проекту. Без вступлений."
-        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=get_full_context(state))])
+        msg = llm.invoke([
+            SystemMessage(content=prompts.get("scorer", "")),
+            HumanMessage(content=get_full_context(state))
+        ])
         return {"last_ai_message": msg.content}
 
     def optimist_node(state: AgentState):
-        prompt = (
-            "Ты — Ведущий Стратег-Оптимист. Твоя задача — составить максимально подробный отчет о потенциальном успехе проекта. "
-            "Используй свои инструменты поиска Яндекса для анализа рынков 2024-2025 гг.\n\n"
-            "СТРУКТУРА ОТЧЕТА (минимум 3000 слов):\n"
-            "1. Анализ глобальных и локальных трендов.\n"
-            "2. Подробный разбор 5+ точек взрывного роста (Scale-up).\n"
-            "3. Анализ потенциальной синергии с экосистемами.\n"
-            "4. Прогноз капитализации и социального эффекта на 5 лет.\n"
-            "5. Список 'быстрых побед' (Quick Wins).\n\n"
-            "Пиши максимально развернуто, используй терминологию и данные из поиска."
-        )
-        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=get_full_context(state))])
+        msg = llm.invoke([
+            SystemMessage(content=prompts.get("optimist", "")),
+            HumanMessage(content=get_full_context(state))
+        ])
         return {"research_optimist": msg.content}
 
     def pessimist_node(state: AgentState):
-        prompt = (
-            "Ты — Главный Риск-Менеджер и Аудитор. Твоя задача — найти все скрытые камни. "
-            "Используй поиск Яндекса для поиска негативных кейсов, судебной практики и регуляторных барьеров.\n\n"
-            "СТРУКТУРА ОТЧЕТА (минимум 3000 слов):\n"
-            "1. Детальный разбор юридических и регуляторных рисков.\n"
-            "2. Глубокий анализ конкурентной среды.\n"
-            "3. Технологические риски.\n"
-            "4. 'Черные лебеди': сценарии полной остановки проекта.\n"
-            "5. Критика бизнес-модели.\n\n"
-            "Не жалей проект, будь максимально дотошным."
-        )
-        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=get_full_context(state))])
+        msg = llm.invoke([
+            SystemMessage(content=prompts.get("pessimist", "")),
+            HumanMessage(content=get_full_context(state))
+        ])
         return {"research_pessimist": msg.content}
 
     def neutral_node(state: AgentState):
-        prompt = (
-            "Ты — Глава Аналитического Департамента. Твоя задача — сухие цифры, ссылки и факты. "
-            "Используй поиск Яндекса для сбора Big Data по теме.\n\n"
-            "СТРУКТУРА ОТЧЕТА (минимум 3000 слов):\n"
-            "1. Объем рынка в цифрах (TAM, SAM, SOM).\n"
-            "2. Сравнительная таблица характеристик существующих решений.\n"
-            "3. Статистика запросов и интерес аудитории.\n"
-            "4. Технологический стек конкурентов.\n"
-            "5. Справочник терминов и нормативная база.\n\n"
-            "Только данные. Никаких оценок."
-        )
-        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=get_full_context(state))])
+        msg = llm.invoke([
+            SystemMessage(content=prompts.get("neutral", "")),
+            HumanMessage(content=get_full_context(state))
+        ])
         return {"research_neutral": msg.content}
 
     def synthesizer_node(state: AgentState):
-        prompt = (
-            "Ты — Главный Исполнительный Директор (CEO). Твоя задача — создать ЕДИНЫЙ МАСТЕР-ДОКУМЕНТ. "
-            "Интегрируй данные Оптимиста, Критика и Фактолога.\n\n"
-            "ТРЕБОВАНИЯ:\n"
-            "- Объем: Максимально возможный.\n"
-            "- Формат: Профессиональный Markdown с таблицами и списками.\n"
-            "- Секции: Стратегическое резюме, Обоснование рынка, План нейтрализации рисков, Дорожная карта."
+        combined = (
+            f"ОПТИМИСТ: {state['research_optimist']}\n\n"
+            f"КРИТИК: {state['research_pessimist']}\n\n"
+            f"ФАКТОЛОГ: {state['research_neutral']}"
         )
-        combined = f"ОПТИМИСТ: {state['research_optimist']}\n\nКРИТИК: {state['research_pessimist']}\n\nФАКТОЛОГ: {state['research_neutral']}"
-        msg = llm.invoke([SystemMessage(content=prompt), HumanMessage(content=combined)])
+        msg = llm.invoke([
+            SystemMessage(content=prompts.get("synthesizer", "")),
+            HumanMessage(content=combined)
+        ])
         return {"final_research": msg.content}
 
     def tech_group_node(state: AgentState):
-        msg = llm.invoke([SystemMessage(content="Опиши стек для Yandex Cloud и 3 этапа разработки."), HumanMessage(content=state['final_research'])])
+        msg = llm.invoke([
+            SystemMessage(content=prompts.get("tech_group", "")),
+            HumanMessage(content=state['final_research'])
+        ])
         return {"technical_plan": msg.content}
 
     # --- Сборка графа ---
@@ -122,6 +119,7 @@ def build_agent_graph(folder_id: str, api_key: str):
 
     return workflow.compile()
 
+
 # --- Логика сохранения ---
 def save_reports_locally(state: dict) -> str:
     reports_dir = os.path.join(BASE_DIR, "reports")
@@ -133,7 +131,11 @@ def save_reports_locally(state: dict) -> str:
     files = {
         "1_full_analysis.md": state.get('final_research', ''),
         "2_tech_plan.md": state.get('technical_plan', ''),
-        "3_raw_research.md": f"# Оптимист\n{state.get('research_optimist', '')}\n\n# Критик\n{state.get('research_pessimist', '')}\n\n# Фактолог\n{state.get('research_neutral', '')}",
+        "3_raw_research.md": (
+            f"# Оптимист\n{state.get('research_optimist', '')}\n\n"
+            f"# Критик\n{state.get('research_pessimist', '')}\n\n"
+            f"# Фактолог\n{state.get('research_neutral', '')}"
+        ),
         "context.md": f"Описание:\n{state.get('project_description', '')}\n\nИстория:\n{state.get('chat_history', '')}"
     }
     for name, content in files.items():
