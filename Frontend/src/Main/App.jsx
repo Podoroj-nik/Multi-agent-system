@@ -118,6 +118,7 @@ function App() {
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
+  const projectFileInputRef = useRef(null);
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -167,7 +168,6 @@ function App() {
   const handleSendMessage = async () => {
     if ((!inputValue.trim() && !attachedFile) || isLoading) return;
 
-    // Формируем сообщение для отображения
     let displayMessage = inputValue;
     let fullMessage = inputValue;
 
@@ -177,19 +177,14 @@ function App() {
       fullMessage = inputValue + '\n\n' + attachedFile.content;
     }
 
-    // Если это первое сообщение и нет текста, но есть файл
     if (!inputValue.trim() && attachedFile) {
       displayMessage = `📎 **Прикрепленный файл: ${attachedFile.name}**\n\`\`\`markdown\n${attachedFile.content}\n\`\`\``;
       fullMessage = attachedFile.content;
     }
 
-    // Отправляем сообщение
     addMessage(displayMessage, true);
-
-    // Очищаем поле ввода и прикрепленный файл
     setInputValue('');
     setAttachedFile(null);
-
     setIsLoading(true);
 
     try {
@@ -264,7 +259,6 @@ function App() {
     }
   };
 
-  // Загрузка .md файла
   const handleFileUpload = (event) => {
     const file = event.target.files[0];
     if (!file) return;
@@ -277,12 +271,10 @@ function App() {
     const reader = new FileReader();
     reader.onload = (e) => {
       const content = e.target.result;
-
       setAttachedFile({
         name: file.name,
         content: content
       });
-
       addMessage(`📄 Файл "${file.name}" прикреплен. Введите ваш комментарий и отправьте сообщение.`, false);
     };
 
@@ -294,13 +286,11 @@ function App() {
     event.target.value = '';
   };
 
-  // Удаление прикрепленного файла
   const removeAttachedFile = () => {
     setAttachedFile(null);
     addMessage('📎 Файл откреплен', false);
   };
 
-  // Вставка Markdown
   const insertMarkdownExample = (type) => {
     const examples = {
       bold: '**жирный текст**',
@@ -314,6 +304,65 @@ function App() {
 
     setInputValue(prev => prev + examples[type]);
     inputRef.current?.focus();
+  };
+
+  // Экспорт проекта
+  const handleExportProject = () => {
+    const projectData = {
+      version: "1.0",
+      exportedAt: new Date().toISOString(),
+      messages: messages,
+      chatHistory: projectContext.chatHistory,
+      reports: reports
+    };
+
+    const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    const timestamp = new Date().toISOString().replace(/[:.]/g, '-').slice(0, -5);
+    a.href = url;
+    a.download = `project_${timestamp}.aipm`;
+    a.click();
+    URL.revokeObjectURL(url);
+
+    addMessage(`📦 Проект экспортирован: project_${timestamp}.aipm`, false);
+  };
+
+  // Импорт проекта
+  const handleImportProject = (event) => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    const reader = new FileReader();
+    reader.onload = (e) => {
+      try {
+        const projectData = JSON.parse(e.target.result);
+
+        // Восстанавливаем состояние
+        if (projectData.messages) {
+          setMessages(projectData.messages);
+        }
+        if (projectData.chatHistory) {
+          setProjectContext({ chatHistory: projectData.chatHistory });
+        }
+        if (projectData.reports) {
+          setReports(projectData.reports);
+        }
+
+        setActiveTab('chat');
+        addMessage(`📂 Проект загружен: ${file.name}`, false);
+      } catch (error) {
+        console.error('Error importing project:', error);
+        addMessage('❌ Ошибка при импорте проекта. Неверный формат файла.', false);
+      }
+    };
+
+    reader.onerror = () => {
+      addMessage('❌ Ошибка при чтении файла проекта', false);
+    };
+
+    reader.readAsText(file);
+    event.target.value = '';
   };
 
   // Начать новый проект
@@ -336,20 +385,27 @@ function App() {
 
   const tabs = [
     { id: 'chat', label: 'Чат', icon: '💬' },
-    { id: 'reports', label: 'Отчеты', icon: '🗒️' },
-    { id: 'tasks', label: 'Задачи', icon: '☑' }
+    { id: 'reports', label: 'Отчеты', icon: '📊' },
+    { id: 'tasks', label: 'Задачи', icon: '✅' }
   ];
 
   const hasProject = projectContext.chatHistory.length > 0;
 
   return (
     <div className="app-container">
-      {/* Скрытый input для загрузки файлов */}
+      {/* Скрытые input для загрузки файлов */}
       <input
         type="file"
         ref={fileInputRef}
         onChange={handleFileUpload}
         accept=".md,.markdown"
+        style={{ display: 'none' }}
+      />
+      <input
+        type="file"
+        ref={projectFileInputRef}
+        onChange={handleImportProject}
+        accept=".aipm,.json"
         style={{ display: 'none' }}
       />
 
@@ -373,13 +429,32 @@ function App() {
             🚀 Запустить исследование
           </button>
 
-          <button
-            className="new-project-btn"
-            onClick={handleNewProject}
-            title="Начать новый проект"
-          >
-            + Новый проект
-          </button>
+          {hasProject ? (
+            <>
+              <button
+                className="action-btn"
+                onClick={handleExportProject}
+                title="Экспортировать проект"
+              >
+                📤 Экспорт
+              </button>
+              <button
+                className="action-btn"
+                onClick={handleNewProject}
+                title="Начать новый проект"
+              >
+                + Новый проект
+              </button>
+            </>
+          ) : (
+            <button
+              className="action-btn"
+              onClick={() => projectFileInputRef.current?.click()}
+              title="Открыть проект"
+            >
+              📂 Открыть проект
+            </button>
+          )}
         </div>
 
         <div className="chat-history">
@@ -425,7 +500,7 @@ function App() {
                     <h2>👋 Добро пожаловать в AI PM Assistant!</h2>
                     <p>Я помогу вам проанализировать проектную идею, оценить риски и создать план реализации.</p>
                     <p>Опишите ваш проект, и я задам уточняющие вопросы для лучшего понимания.</p>
-                    <p>Вы можете начать с описания идеи или прикрепить .md файл с готовым описанием.</p>
+                    <p>Вы можете начать с описания идеи, прикрепить .md файл или открыть существующий проект.</p>
 
                     <div className="markdown-hint">
                       <h4>✨ Поддерживается Markdown:</h4>
@@ -484,7 +559,6 @@ function App() {
                 <div ref={messagesEndRef} />
               </div>
 
-              {/* Отображение прикрепленного файла */}
               {attachedFile && (
                 <div className="attached-file-bar">
                   <div className="attached-file-info">
@@ -549,9 +623,18 @@ function App() {
                     </div>
                   </div>
 
-                  {reports.saved_path && (
+                  {reports.local_path && (
                     <div className="report-meta">
-                      <p>📁 Отчеты сохранены: {reports.saved_path}</p>
+                      <p>📁 Отчеты сохранены: {reports.local_path}</p>
+                    </div>
+                  )}
+
+                  {reports.disk_upload && reports.disk_upload.status === 'success' && (
+                    <div className="report-meta">
+                      <p>☁️ Загружено на Яндекс.Диск</p>
+                      <a href={reports.disk_upload.share_link} target="_blank" rel="noopener noreferrer">
+                        Открыть на Диске
+                      </a>
                     </div>
                   )}
                 </div>

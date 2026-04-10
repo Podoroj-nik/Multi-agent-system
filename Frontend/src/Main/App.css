@@ -910,3 +910,62 @@ body {
 .project-description {
   display: none;
 }
+
+/* Стили для кнопок действий */
+.project-actions {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.start-research-btn {
+  width: 100%;
+  padding: 12px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+}
+
+.start-research-btn:hover:not(:disabled) {
+  background: var(--primary-dark);
+}
+
+.start-research-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+.action-btn {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.action-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--primary-color);
+}
+
+.report-meta a {
+  color: var(--primary-color);
+  text-decoration: none;
+  margin-left: 8px;
+}
+
+.report-meta a:hover {
+  text-decoration: underline;
+}
