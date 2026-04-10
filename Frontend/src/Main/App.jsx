@@ -114,6 +114,7 @@ function App() {
   const [reports, setReports] = useState(null);
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [attachedFile, setAttachedFile] = useState(null);
+  const [isNewProject, setIsNewProject] = useState(true);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
@@ -127,6 +128,11 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Проверяем, есть ли реальный проект (сообщения от пользователя)
+  const hasRealProject = () => {
+    return projectContext.chatHistory.some(item => item.role === 'user');
+  };
 
   // Формируем описание проекта из первого сообщения пользователя
   const getProjectDescription = () => {
@@ -157,6 +163,11 @@ function App() {
         timestamp: new Date().toISOString()
       }]
     }));
+
+    // Если это сообщение от пользователя, сбрасываем флаг нового проекта
+    if (isUser) {
+      setIsNewProject(false);
+    }
   };
 
   const formatChatHistoryForBackend = (history) => {
@@ -308,6 +319,7 @@ function App() {
 
   // Экспорт проекта
   const handleExportProject = () => {
+    console.log('Export clicked');
     const projectData = {
       version: "1.0",
       exportedAt: new Date().toISOString(),
@@ -330,15 +342,25 @@ function App() {
 
   // Импорт проекта
   const handleImportProject = (event) => {
+    console.log('Import clicked');
     const file = event.target.files[0];
     if (!file) return;
+
+    if (!file.name.endsWith('.aipm') && !file.name.endsWith('.json')) {
+      addMessage('❌ Пожалуйста, выберите файл с расширением .aipm или .json', false);
+      event.target.value = '';
+      return;
+    }
 
     const reader = new FileReader();
     reader.onload = (e) => {
       try {
         const projectData = JSON.parse(e.target.result);
 
-        // Восстанавливаем состояние
+        if (!projectData.messages && !projectData.chatHistory) {
+          throw new Error('Неверный формат файла');
+        }
+
         if (projectData.messages) {
           setMessages(projectData.messages);
         }
@@ -348,6 +370,10 @@ function App() {
         if (projectData.reports) {
           setReports(projectData.reports);
         }
+
+        // Проверяем, есть ли сообщения от пользователя
+        const hasUserMessages = projectData.chatHistory?.some(item => item.role === 'user') || false;
+        setIsNewProject(!hasUserMessages);
 
         setActiveTab('chat');
         addMessage(`📂 Проект загружен: ${file.name}`, false);
@@ -367,29 +393,52 @@ function App() {
 
   // Начать новый проект
   const handleNewProject = () => {
-    if (projectContext.chatHistory.length > 0) {
+    console.log('New project clicked');
+    if (hasRealProject()) {
       if (!window.confirm('Вы уверены? Текущий диалог будет очищен.')) {
         return;
       }
     }
 
+    // Полный сброс
     setMessages([]);
     setProjectContext({ chatHistory: [] });
     setReports(null);
     setActiveTab('chat');
     setAttachedFile(null);
     setInputValue('');
+    setIsNewProject(true);
 
-    addMessage('🆕 Начат новый проект. Опишите вашу идею, и я помогу её проанализировать.', false);
+    // Добавляем приветственное сообщение
+    const timestamp = new Date().toLocaleTimeString('ru-RU', {
+      hour: '2-digit',
+      minute: '2-digit'
+    });
+
+    const welcomeMessage = {
+      content: '🆕 Начат новый проект. Опишите вашу идею, и я помогу её проанализировать.',
+      isUser: false,
+      timestamp,
+      id: Date.now()
+    };
+
+    setMessages([welcomeMessage]);
+    setProjectContext({
+      chatHistory: [{
+        role: 'ai',
+        content: welcomeMessage.content,
+        timestamp: new Date().toISOString()
+      }]
+    });
   };
 
   const tabs = [
     { id: 'chat', label: 'Чат', icon: '💬' },
-    { id: 'reports', label: 'Отчеты', icon: '📊' },
-    { id: 'tasks', label: 'Задачи', icon: '✅' }
+    { id: 'reports', label: 'Отчеты', icon: '📈' },
+    { id: 'tasks', label: 'Задачи', icon: '☑️' }
   ];
 
-  const hasProject = projectContext.chatHistory.length > 0;
+  const hasProject = hasRealProject();
 
   return (
     <div className="app-container">
@@ -425,8 +474,9 @@ function App() {
             className="start-research-btn"
             onClick={handleStartResearch}
             disabled={isLoading || !hasProject}
+            title={!sidebarOpen ? "Запустить исследование" : ""}
           >
-            🚀 Запустить исследование
+            {sidebarOpen ? '🚀 Запустить исследование' : '🚀'}
           </button>
 
           {hasProject ? (
@@ -434,25 +484,25 @@ function App() {
               <button
                 className="action-btn"
                 onClick={handleExportProject}
-                title="Экспортировать проект"
+                title={!sidebarOpen ? "Экспортировать проект" : "Экспортировать проект"}
               >
-                📤 Экспорт
+                {sidebarOpen ? '📤 Экспорт' : '📤'}
               </button>
               <button
                 className="action-btn"
                 onClick={handleNewProject}
-                title="Начать новый проект"
+                title={!sidebarOpen ? "Новый проект" : "Начать новый проект"}
               >
-                + Новый проект
+                {sidebarOpen ? '✨ Новый проект' : '✨'}
               </button>
             </>
           ) : (
             <button
               className="action-btn"
               onClick={() => projectFileInputRef.current?.click()}
-              title="Открыть проект"
+              title={!sidebarOpen ? "Открыть проект" : "Открыть сохраненный проект"}
             >
-              📂 Открыть проект
+              {sidebarOpen ? '📂 Открыть проект' : '📂'}
             </button>
           )}
         </div>
@@ -625,7 +675,7 @@ function App() {
 
                   {reports.local_path && (
                     <div className="report-meta">
-                      <p>📁 Отчеты сохранены: {reports.local_path}</p>
+                      <p>📁 Отчеты сохранены локально: {reports.local_path}</p>
                     </div>
                   )}
 

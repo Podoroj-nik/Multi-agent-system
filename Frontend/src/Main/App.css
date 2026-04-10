@@ -1,4 +1,3 @@
-/* App.css */
 * {
   margin: 0;
   padding: 0;
@@ -44,17 +43,14 @@ body {
   display: flex;
   flex-direction: column;
   transition: width 0.3s ease;
-  overflow: hidden;
+  overflow: visible;
+  position: relative;
+  z-index: 20;
 }
 
 .sidebar.collapsed {
-  width: 60px;
-}
-
-.sidebar.collapsed .sidebar-header h2,
-.sidebar.collapsed .project-info,
-.sidebar.collapsed .chat-history {
-  display: none;
+  width: 70px;
+  overflow: visible;
 }
 
 .sidebar-header {
@@ -65,10 +61,19 @@ body {
   justify-content: space-between;
 }
 
+.sidebar.collapsed .sidebar-header {
+  justify-content: center;
+  padding: 15px 0;
+}
+
 .sidebar-header h2 {
   font-size: 18px;
   font-weight: 600;
   color: var(--text-primary);
+}
+
+.sidebar.collapsed .sidebar-header h2 {
+  display: none;
 }
 
 .sidebar-toggle {
@@ -86,31 +91,18 @@ body {
   background: var(--message-user-bg);
 }
 
-.project-info {
-  display: none;
+/* Секция с кнопками действий */
+.project-actions {
+  padding: 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  transition: padding 0.3s ease;
 }
 
-.project-info h3 {
-  font-size: 14px;
-  font-weight: 600;
-  color: var(--text-secondary);
-  margin-bottom: 12px;
-}
-
-.project-description {
-  width: 100%;
-  padding: 10px;
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
-  resize: vertical;
-  font-family: inherit;
-  margin-bottom: 12px;
-}
-
-.project-description:focus {
-  outline: none;
-  border-color: var(--primary-color);
+.sidebar.collapsed .project-actions {
+  padding: 10px 5px;
 }
 
 .start-research-btn {
@@ -123,7 +115,21 @@ body {
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
-  transition: background 0.2s;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.sidebar.collapsed .start-research-btn {
+  padding: 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 20px;
 }
 
 .start-research-btn:hover:not(:disabled) {
@@ -135,10 +141,63 @@ body {
   cursor: not-allowed;
 }
 
+.start-research-btn:active {
+  transform: scale(0.98);
+}
+
+.action-btn {
+  width: 100%;
+  padding: 10px;
+  background: transparent;
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  font-size: 14px;
+  cursor: pointer;
+  transition: all 0.2s;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  position: relative;
+  z-index: 10;
+  pointer-events: auto;
+}
+
+.sidebar.collapsed .action-btn {
+  padding: 12px 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 18px;
+}
+
+.action-btn:hover {
+  background: var(--bg-secondary);
+  color: var(--text-primary);
+  border-color: var(--primary-color);
+}
+
+.action-btn:active {
+  transform: scale(0.98);
+}
+
+.project-actions button {
+  pointer-events: auto;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* История чата */
 .chat-history {
   flex: 1;
   padding: 20px;
   overflow-y: auto;
+}
+
+.sidebar.collapsed .chat-history,
+.sidebar.collapsed .chat-history h3,
+.sidebar.collapsed .history-content {
+  display: none;
 }
 
 .chat-history h3 {
@@ -154,9 +213,14 @@ body {
 }
 
 .history-item {
-  margin-bottom: 8px;
-  padding: 8px;
-  border-radius: 6px;
+  margin-bottom: 12px;
+  padding: 10px;
+  border-radius: 8px;
+  transition: background 0.2s;
+}
+
+.history-item:hover {
+  background: rgba(16, 163, 127, 0.05);
 }
 
 .history-item.user {
@@ -170,6 +234,19 @@ body {
 .history-label {
   font-weight: 600;
   margin-right: 8px;
+}
+
+.history-message-content {
+  white-space: pre-wrap;
+  word-break: break-word;
+  line-height: 1.4;
+}
+
+.history-more-indicator {
+  margin-top: 4px;
+  color: #999;
+  font-style: italic;
+  font-size: 0.9em;
 }
 
 /* Основной контент */
@@ -359,7 +436,7 @@ body {
   padding: 20px;
   border-top: 1px solid var(--border-color);
   display: flex;
-  gap: 12px;
+  gap: 8px;
   align-items: flex-end;
   background: var(--bg-primary);
 }
@@ -379,6 +456,32 @@ body {
 .message-input:focus {
   outline: none;
   border-color: var(--primary-color);
+}
+
+.file-upload-btn {
+  width: 44px;
+  height: 44px;
+  border-radius: 50%;
+  background: var(--bg-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-color);
+  cursor: pointer;
+  font-size: 18px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.file-upload-btn:hover:not(:disabled) {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.file-upload-btn:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
 }
 
 .send-button {
@@ -403,6 +506,101 @@ body {
 .send-button:disabled {
   opacity: 0.5;
   cursor: not-allowed;
+}
+
+/* Прикрепленный файл */
+.attached-file-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 8px 12px;
+  margin: 0 20px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-color);
+  border-radius: 8px;
+  border-bottom: none;
+  border-bottom-left-radius: 0;
+  border-bottom-right-radius: 0;
+}
+
+.attached-file-info {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-icon {
+  font-size: 18px;
+}
+
+.file-name {
+  font-size: 14px;
+  color: var(--text-primary);
+  font-weight: 500;
+}
+
+.remove-file-btn {
+  background: none;
+  border: none;
+  cursor: pointer;
+  font-size: 18px;
+  color: var(--text-secondary);
+  padding: 4px 8px;
+  border-radius: 4px;
+  transition: all 0.2s;
+}
+
+.remove-file-btn:hover {
+  background: rgba(255, 0, 0, 0.1);
+  color: #ff4444;
+}
+
+/* Подсказка Markdown */
+.markdown-hint {
+  margin-top: 24px;
+  padding: 16px;
+  background: var(--bg-secondary);
+  border-radius: 12px;
+  text-align: left;
+}
+
+.markdown-hint h4 {
+  margin-bottom: 12px;
+  color: var(--text-primary);
+}
+
+.markdown-buttons {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 12px;
+  flex-wrap: wrap;
+}
+
+.markdown-buttons button {
+  width: 36px;
+  height: 36px;
+  border: 1px solid var(--border-color);
+  background: white;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 14px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s;
+}
+
+.markdown-buttons button:hover {
+  background: var(--primary-color);
+  color: white;
+  border-color: var(--primary-color);
+}
+
+.hint-text {
+  font-size: 13px;
+  color: var(--text-secondary);
+  font-family: monospace;
+  margin-top: 8px;
 }
 
 /* Отчеты */
@@ -447,6 +645,16 @@ body {
   border-radius: 8px;
   color: var(--text-secondary);
   font-size: 14px;
+}
+
+.report-meta a {
+  color: var(--primary-color);
+  text-decoration: none;
+  margin-left: 8px;
+}
+
+.report-meta a:hover {
+  text-decoration: underline;
 }
 
 /* Задачи */
@@ -546,49 +754,7 @@ body {
   cursor: not-allowed;
 }
 
-/* Скроллбар */
-::-webkit-scrollbar {
-  width: 8px;
-  height: 8px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: #d1d5db;
-  border-radius: 4px;
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: #9ca3af;
-}
-
-/* Адаптивность */
-@media (max-width: 768px) {
-  .sidebar {
-    position: absolute;
-    left: 0;
-    top: 0;
-    bottom: 0;
-    z-index: 100;
-    box-shadow: var(--shadow-md);
-  }
-
-  .sidebar.collapsed {
-    transform: translateX(-100%);
-  }
-
-  .message-bubble {
-    max-width: 90%;
-  }
-}
-
-
-/* Добавьте эти стили в конец файла App.css */
-
-/* Стили для Markdown */
+/* Markdown стили */
 .markdown-body {
   line-height: 1.6;
 }
@@ -660,312 +826,41 @@ body {
   text-decoration: underline;
 }
 
-.markdown-body table {
-  border-collapse: collapse;
-  width: 100%;
-  margin: 16px 0;
+/* Скроллбар */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
 }
 
-.markdown-body th,
-.markdown-body td {
-  border: 1px solid #ddd;
-  padding: 8px 12px;
-  text-align: left;
+::-webkit-scrollbar-track {
+  background: transparent;
 }
 
-.markdown-body th {
-  background: #f5f5f5;
-  font-weight: 600;
-}
-
-/* Подсказка по Markdown */
-.markdown-hint {
-  margin-top: 24px;
-  padding: 16px;
-  background: var(--bg-secondary);
-  border-radius: 12px;
-  text-align: left;
-}
-
-.markdown-hint h4 {
-  margin-bottom: 12px;
-  color: var(--text-primary);
-}
-
-.markdown-buttons {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 12px;
-  flex-wrap: wrap;
-}
-
-.markdown-buttons button {
-  width: 36px;
-  height: 36px;
-  border: 1px solid var(--border-color);
-  background: white;
-  border-radius: 6px;
-  cursor: pointer;
-  font-size: 14px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.markdown-buttons button:hover {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-}
-
-.hint-text {
-  font-size: 13px;
-  color: var(--text-secondary);
-  font-family: monospace;
-  margin-top: 8px;
-}
-
-/* Улучшенные стили для истории */
-.history-text p {
-  margin: 2px 0;
-  line-height: 1.4;
-}
-
-.history-item {
-  margin-bottom: 12px;
-  padding: 10px;
-  border-radius: 8px;
-  transition: background 0.2s;
-}
-
-.history-item:hover {
-  background: rgba(16, 163, 127, 0.05);
-}
-
-/* Стили для истории (исправленные) */
-.history-message-content {
-  white-space: pre-wrap;
-  word-break: break-word;
-  line-height: 1.4;
-}
-
-.history-more-indicator {
-  margin-top: 4px;
-  color: #999;
-  font-style: italic;
-  font-size: 0.9em;
-}
-
-/* Кнопка загрузки файла */
-.file-upload-btn {
-  width: 44px;
-  height: 44px;
-  border-radius: 50%;
-  background: var(--bg-secondary);
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  cursor: pointer;
-  font-size: 18px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: all 0.2s;
-}
-
-.file-upload-btn:hover:not(:disabled) {
-  background: var(--primary-color);
-  color: white;
-  border-color: var(--primary-color);
-}
-
-.file-upload-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-/* Адаптация input-container для трех кнопок */
-.input-container {
-  padding: 20px;
-  border-top: 1px solid var(--border-color);
-  display: flex;
-  gap: 8px;
-  align-items: flex-end;
-  background: var(--bg-primary);
-}
-
-
-/* Стили для прикрепленного файла */
-.attached-file-bar {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 8px 12px;
-  margin: 0 20px;
-  background: var(--bg-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  border-bottom: none;
-  border-bottom-left-radius: 0;
-  border-bottom-right-radius: 0;
-}
-
-.attached-file-info {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.file-icon {
-  font-size: 18px;
-}
-
-.file-name {
-  font-size: 14px;
-  color: var(--text-primary);
-  font-weight: 500;
-}
-
-.remove-file-btn {
-  background: none;
-  border: none;
-  cursor: pointer;
-  font-size: 18px;
-  color: var(--text-secondary);
-  padding: 4px 8px;
+::-webkit-scrollbar-thumb {
+  background: #d1d5db;
   border-radius: 4px;
-  transition: all 0.2s;
 }
 
-.remove-file-btn:hover {
-  background: rgba(255, 0, 0, 0.1);
-  color: #ff4444;
+::-webkit-scrollbar-thumb:hover {
+  background: #9ca3af;
 }
 
-/* Адаптация input-container когда есть прикрепленный файл */
-.attached-file-bar + .input-container {
-  padding-top: 12px;
-}
+/* Адаптивность */
+@media (max-width: 768px) {
+  .sidebar {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    z-index: 100;
+    box-shadow: var(--shadow-md);
+  }
 
-.attached-file-bar + .input-container .message-input {
-  border-top-left-radius: 0;
-  border-top-right-radius: 0;
-}
+  .sidebar.collapsed {
+    transform: translateX(-100%);
+  }
 
-/* Стили для заголовка проекта */
-.project-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  margin-bottom: 12px;
-}
-
-.project-header h3 {
-  margin: 0;
-}
-
-.new-project-btn {
-  width: 100%;
-  padding: 10px;
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.new-project-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-}
-
-.project-summary {
-  background: var(--bg-primary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  padding: 12px;
-  margin-bottom: 12px;
-}
-
-.project-description-preview {
-  font-size: 13px;
-  line-height: 1.5;
-  color: var(--text-primary);
-  margin: 0;
-  white-space: pre-wrap;
-  word-break: break-word;
-}
-
-.no-project-message {
-  color: #999;
-  font-size: 13px;
-  text-align: center;
-  padding: 20px 0;
-  margin-bottom: 12px;
-}
-
-/* Убираем старое поле textarea */
-.project-description {
-  display: none;
-}
-
-/* Стили для кнопок действий */
-.project-actions {
-  padding: 20px;
-  border-bottom: 1px solid var(--border-color);
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.start-research-btn {
-  width: 100%;
-  padding: 12px;
-  background: var(--primary-color);
-  color: white;
-  border: none;
-  border-radius: 8px;
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: background 0.2s;
-}
-
-.start-research-btn:hover:not(:disabled) {
-  background: var(--primary-dark);
-}
-
-.start-research-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
-.action-btn {
-  width: 100%;
-  padding: 10px;
-  background: transparent;
-  color: var(--text-secondary);
-  border: 1px solid var(--border-color);
-  border-radius: 8px;
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.action-btn:hover {
-  background: var(--bg-secondary);
-  color: var(--text-primary);
-  border-color: var(--primary-color);
-}
-
-.report-meta a {
-  color: var(--primary-color);
-  text-decoration: none;
-  margin-left: 8px;
-}
-
-.report-meta a:hover {
-  text-decoration: underline;
+  .message-bubble {
+    max-width: 90%;
+  }
 }
