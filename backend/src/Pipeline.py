@@ -14,26 +14,22 @@ from .deep_search import analyze_project_application
 BASE_DIR = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 PROMPTS_PATH = os.path.join(BASE_DIR, "data", "prompts.json")
 
-
-# --- 1. Определение состояния ---
 class AgentState(TypedDict):
     project_description: str
     chat_history: str
     last_ai_message: str
     command: str
-    web_summaries: str  # Заменили трех агентов на одну выжимку ссылок
-    final_research: str  # Сюда будет падать итоговый аудит из DeepSearch
-    technical_plan: str
-
+    web_summaries: str      # Для вкладки "Отчеты"
+    final_research: str     # Для вкладки "Отчеты"
+    technical_plan: str     # Для вкладки "Отчеты"
+    tasks: str              # Для вкладки "Задачи"
 
 def load_prompts():
     try:
         with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
-    except FileNotFoundError:
-        print(f"Ошибка: Файл {PROMPTS_PATH} не найден.")
+    except Exception:
         return {}
-
 
 # --- Работа с Яндекс.Диском ---
 class YandexDiskUploader:
@@ -112,7 +108,6 @@ class YandexDiskUploader:
 # --- 2. Сборка графа build_agent_graph ---
 def build_agent_graph(folder_id: str, api_key: str):
     prompts = load_prompts()
-
     llm = ChatYandexGPT(
         api_key=api_key,
         folder_id=folder_id,
@@ -120,48 +115,44 @@ def build_agent_graph(folder_id: str, api_key: str):
         temperature=0.3
     )
 
-    def get_full_context(state: AgentState) -> str:
-        return f"Описание проекта: {state['project_description']}\nИстория уточнений: {state['chat_history']}"
-
-    def scorer_node(state: AgentState):
-        msg = llm.invoke([
-            SystemMessage(content=prompts.get("scorer", "")),
-            HumanMessage(content=get_full_context(state))
-        ])
-        return {"last_ai_message": msg.content}
-
-    # НОВЫЙ АСИНХРОННЫЙ УЗЕЛ DEEP RESEARCH
+    # 1. Узел глубокого поиска (Deep Search)
     async def deep_research_node(state: AgentState):
-        full_text = get_full_context(state)
-        # Передаем лимит времени (например, 15 минут) и текст заявки
-        summaries, evaluation = await analyze_project_application(max_time_min=15, project_text=full_text)
-
-        # Возвращаем результаты в стейт
+        full_context = f"Проект: {state['project_description']}\nКонтекст: {state['chat_history']}"
+        # Вызываем твою функцию
+        summaries, evaluation = await analyze_project_application(max_time_min=10, project_text=full_context)
         return {
             "web_summaries": summaries,
-            "final_research": evaluation  # Отдаем отчет сюда, чтобы tech_group смог его подхватить
+            "final_research": evaluation
         }
 
-    def tech_group_node(state: AgentState):
-        # tech_group опирается на final_research, который теперь генерирует DeepSearch
-        msg = llm.invoke([
-            SystemMessage(content=prompts.get("tech_group", "")),
+    # 2. Узел технического планирования и задач
+    def tech_node(state: AgentState):
+        # Генерируем тех. план на основе исследования
+        tech_msg = llm.invoke([
+            SystemMessage(content=prompts.get("tech_group", "Составь технический план реализации.")),
             HumanMessage(content=state['final_research'])
         ])
-        return {"technical_plan": msg.content}
 
+        # Генерируем конкретный список задач для вкладки "Задачи"
+        tasks_msg = llm.invoke([
+            SystemMessage(
+                content="На основе техплана выдели список конкретных задач для команды в формате Markdown списка."),
+            HumanMessage(content=tech_msg.content)
+        ])
+
+        return {
+            "technical_plan": tech_msg.content,
+            "tasks": tasks_msg.content
+        }
+
+    # Сборка графа
     workflow = StateGraph(AgentState)
-    workflow.add_node("scorer", scorer_node)
     workflow.add_node("deep_research", deep_research_node)
-    workflow.add_node("tech_group", tech_group_node)
+    workflow.add_node("tech_group", tech_node)
 
-    def start_router(state: AgentState):
-        return "deep_research" if state["command"] == "search" else "scorer"
-
-    workflow.add_conditional_edges(START, start_router)
+    workflow.add_edge(START, "deep_research")
     workflow.add_edge("deep_research", "tech_group")
     workflow.add_edge("tech_group", END)
-    workflow.add_edge("scorer", END)
 
     return workflow.compile()
 
@@ -180,35 +171,25 @@ def clean_filename(name: str, max_length: int = 30) -> str:
     # Если строка пустая, используем "project"
     return cleaned if cleaned else "project"
 
-def save_reports_locally(state: dict) -> tuple:
-    """Сохраняет отчеты локально"""
+
+def save_reports_locally(state: dict):
     reports_dir = os.path.join(BASE_DIR, "reports")
     os.makedirs(reports_dir, exist_ok=True)
 
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
-    folder_name = f"report_{timestamp}"
-    path = os.path.join(reports_dir, folder_name)
+    path = os.path.join(reports_dir, f"report_{timestamp}")
     os.makedirs(path, exist_ok=True)
 
-    project_name = clean_filename(state.get('project_description', 'project'))
-
     files = {
-        "1_full_analysis.md": state.get('final_research', ''),
-        "2_tech_plan.md": state.get('technical_plan', ''),
-        # Теперь тут сохраняем сырые выжимки с веб-страниц
-        "3_raw_research.md": state.get('web_summaries', 'Нет данных об исследовании.'),
-        "context.md": (
-            f"# Описание проекта\n{state.get('project_description', '')}\n\n"
-            f"# История диалога\n{state.get('chat_history', '')}"
-        ),
+        "reports_data.md": f"# Выжимка из сети\n{state.get('web_summaries')}\n\n# Анализ\n{state.get('final_research')}\n\n# Техплан\n{state.get('technical_plan')}",
+        "tasks.md": state.get("tasks", "")
     }
 
     for name, content in files.items():
-        file_path = os.path.join(path, name)
-        with open(file_path, "w", encoding="utf-8") as f:
+        with open(os.path.join(path, name), "w", encoding="utf-8") as f:
             f.write(content)
 
-    return path, folder_name, project_name
+    return path, f"report_{timestamp}", "project"
 
 
 def upload_to_yandex_disk(local_path: str, folder_name: str, project_name: str, oauth_token: str) -> dict:
