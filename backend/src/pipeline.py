@@ -129,9 +129,30 @@ def build_agent_graph(folder_id: str, api_key: str):
         full_text = f"Проект: {state['project_description']}\nКонтекст: {state['chat_history']}"
         # Вызов функции из DeepSearch.py (возвращает кортеж из двух строк)
         w_str, p_eval = await analyze_project_application(max_time_min=10, project_text=full_text)
+
+        # === ДОБАВЛЯЕМ ТОЛЬКО ЭТИ СТРОКИ ===
+        # Извлекаем секции из ответа, если они не были разделены в deep_search.py
+        web_summaries = w_str
+        project_evaluation = p_eval
+
+        # Если w_str содержит полный отчет с обоими секциями, разделяем его
+        if "🛠 Финальный анализ" in w_str:
+            parts = w_str.split("🛠 Финальный анализ")
+            web_summaries = parts[0].replace("📋 Глубокий поиск", "").strip()
+            if len(parts) > 1:
+                project_evaluation = "🛠 Финальный анализ" + parts[1]
+
+        # Если p_eval пустой, но есть в w_str
+        if not project_evaluation and "Финальный анализ" in w_str:
+            parts = w_str.split("Финальный анализ")
+            if len(parts) > 1:
+                project_evaluation = "Финальный анализ" + parts[1]
+                web_summaries = parts[0].strip()
+        # === КОНЕЦ ДОБАВЛЕНИЯ ===
+
         return {
-            "web_summaries_str": w_str,
-            "project_evaluation": p_eval
+            "web_summaries_str": web_summaries,
+            "project_evaluation": project_evaluation
         }
 
     def tech_node(state: AgentState):

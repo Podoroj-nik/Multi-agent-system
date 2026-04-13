@@ -799,51 +799,59 @@ function App() {
           )}
 
           {activeTab === 'reports' && (
-            <div className="reports-container">
-              {reports ? (
-                <div className="reports-content">
-                  <div className="report-section">
-                    <h3>📋 Глубокий поиск</h3>
-                    <div className="report-text markdown-body">
-                      <ReactMarkdown>{reports.final_research || ''}</ReactMarkdown>
+              <div className="reports-container">
+                {reports ? (
+                  <div className="reports-content">
+                    <div className="report-section">
+                      <h3>📋 Глубокий поиск</h3>
+                      <div className="report-content">
+                        {reports.web_summaries_str ? (
+                          <ReactMarkdown>{reports.web_summaries_str}</ReactMarkdown>
+                        ) : (
+                          <p className="loading-placeholder">Данные поиска не найдены в ответе агента.</p>
+                        )}
+                      </div>
                     </div>
+
+                    <div className="report-section">
+                      <h3>🛠 Финальный анализ</h3>
+                      <div className="report-content">
+                        {reports.project_evaluation ? (
+                          <ReactMarkdown>{reports.project_evaluation}</ReactMarkdown>
+                        ) : (
+                          <p className="loading-placeholder">Данные оценки не найдены в ответе агента.</p>
+                        )}
+                      </div>
+                    </div>
+
+                    {reports.local_path && (
+                      <div className="report-meta">
+                        <p>📁 Отчеты сохранены локально: {reports.local_path}</p>
+                      </div>
+                    )}
+
+                    {reports.disk_upload && reports.disk_upload.status === 'success' && (
+                      <div className="report-meta">
+                        <p>☁️ Загружено на Яндекс.Диск</p>
+                        <a href={reports.disk_upload.share_link} target="_blank" rel="noopener noreferrer">
+                          Открыть на Диске
+                        </a>
+                      </div>
+                    )}
                   </div>
-
-                  <div className="report-section">
-                    <h3>🛠 Финальный анализ</h3>
-                    <div className="report-text markdown-body">
-                      <ReactMarkdown>{reports.technical_plan || ''}</ReactMarkdown>
-                    </div>
+                ) : (
+                  <div className="empty-state">
+                    <p>🔍 Отчеты появятся здесь после завершения исследования</p>
+                    <button
+                      className="primary-button"
+                      onClick={handleStartResearch}
+                      disabled={isLoading || !hasProject}
+                    >
+                      Начать исследование
+                    </button>
                   </div>
-
-                  {reports.local_path && (
-                    <div className="report-meta">
-                      <p>📁 Отчеты сохранены локально: {reports.local_path}</p>
-                    </div>
-                  )}
-
-                  {reports.disk_upload && reports.disk_upload.status === 'success' && (
-                    <div className="report-meta">
-                      <p>☁️ Загружено на Яндекс.Диск</p>
-                      <a href={reports.disk_upload.share_link} target="_blank" rel="noopener noreferrer">
-                        Открыть на Диске
-                      </a>
-                    </div>
-                  )}
-                </div>
-              ) : (
-                <div className="empty-state">
-                  <p>🔍 Отчеты появятся здесь после завершения исследования</p>
-                  <button
-                    className="primary-button"
-                    onClick={handleStartResearch}
-                    disabled={isLoading || !hasProject}
-                  >
-                    Начать исследование
-                  </button>
-                </div>
-              )}
-            </div>
+                )}
+              </div>
           )}
 
           {activeTab === 'tasks' && (
