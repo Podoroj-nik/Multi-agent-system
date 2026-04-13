@@ -56,6 +56,7 @@ class ProjectRequest(BaseModel):
 @app.post("/api/process")
 async def process_project(req: ProjectRequest):
     try:
+        # CREDENTIALS должны быть инициализированы ранее в коде
         agent_graph = build_agent_graph(CREDENTIALS["folder_id"], CREDENTIALS["api_key"])
 
         initial_state = {
@@ -65,49 +66,37 @@ async def process_project(req: ProjectRequest):
             "last_ai_message": "",
             "web_summaries_str": "",
             "project_evaluation": "",
-            "technical_plan": "",
-            "tasks": ""
+            "technical_plan": ""
         }
 
-        # Выполняем асинхронно
+        # Асинхронный вызов графа
         final_state = await agent_graph.ainvoke(initial_state)
 
         if req.command == "ask":
-            # Ответ для Scorer
             return {
                 "status": "interviewing",
                 "ai_message": final_state["last_ai_message"]
             }
 
         else:
-            # Ответ для вкладки "Отчеты"
-            # Сохраняем локально (только те 2 файла)
+            # Сохранение только двух файлов
             saved_path, folder_name, project_name = save_reports_locally(final_state)
 
+            # Ответ, который фронтенд разложит по секциям
             response_data = {
                 "status": "completed",
-                # Отдаем ключи, которые фронтенд ожидает увидеть во вкладке "Отчеты"
                 "web_summaries_str": final_state["web_summaries_str"],
-                "project_evaluation": final_state["project_evaluation"],
-                # Техплан можно передать, но на диск мы его не сохраняли
-                "technical_plan": final_state["technical_plan"]
+                "project_evaluation": final_state["project_evaluation"]
             }
 
-            # Загрузка на Яндекс.Диск (если включено)
+            # Опциональная загрузка на Яндекс.Диск
             if req.upload_to_disk and CREDENTIALS["disk_token"]:
                 from src.pipeline import upload_to_yandex_disk
-                upload_to_yandex_disk(
-                    saved_path,
-                    folder_name,
-                    project_name,
-                    CREDENTIALS["disk_token"]
-                )
+                upload_to_yandex_disk(saved_path, folder_name, project_name, CREDENTIALS["disk_token"])
 
             return response_data
 
     except Exception as e:
-        import traceback
-        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
