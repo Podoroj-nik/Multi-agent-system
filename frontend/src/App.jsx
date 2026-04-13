@@ -804,7 +804,7 @@ function App() {
                   <div className="reports-content">
                     <div className="report-section">
                       <h3>📋 Глубокий поиск</h3>
-                      <div className="report-content">
+                      <div className="report-content markdown-body">
                         {reports.web_summaries_str ? (
                           <ReactMarkdown>{reports.web_summaries_str}</ReactMarkdown>
                         ) : (
@@ -815,7 +815,7 @@ function App() {
 
                     <div className="report-section">
                       <h3>🛠 Финальный анализ</h3>
-                      <div className="report-content">
+                      <div className="report-content markdown-body">
                         {reports.project_evaluation ? (
                           <ReactMarkdown>{reports.project_evaluation}</ReactMarkdown>
                         ) : (
