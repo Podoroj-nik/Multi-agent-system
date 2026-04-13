@@ -803,14 +803,14 @@ function App() {
               {reports ? (
                 <div className="reports-content">
                   <div className="report-section">
-                    <h3>📋 Финальный анализ</h3>
+                    <h3>📋 Глубокий поиск</h3>
                     <div className="report-text markdown-body">
                       <ReactMarkdown>{reports.final_research || ''}</ReactMarkdown>
                     </div>
                   </div>
 
                   <div className="report-section">
-                    <h3>🛠 Технический план</h3>
+                    <h3>🛠 Финальный анализ</h3>
                     <div className="report-text markdown-body">
                       <ReactMarkdown>{reports.technical_plan || ''}</ReactMarkdown>
                     </div>
