@@ -19,11 +19,9 @@ class AgentState(TypedDict):
     chat_history: str
     last_ai_message: str
     command: str
-    # Данные для вкладки "Отчеты"
-    web_summaries: str
-    final_research: str
-    technical_plan: str
-    # Данные для вкладки "Задачи"
+    web_summaries_str: str   # Для вкладки "Отчеты"
+    project_evaluation: str  # Для вкладки "Отчеты"
+    technical_plan: str      # Оставляем в стейте, но не сохраняем
     tasks: str
 
 def load_prompts():
@@ -31,7 +29,8 @@ def load_prompts():
         with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        return {"scorer": "Ты помощник, который уточняет детали проекта.", "tech_group": "Составь техплан."}
+        return {}
+
 
 # --- Работа с Яндекс.Диском ---
 class YandexDiskUploader:
@@ -117,46 +116,44 @@ def build_agent_graph(folder_id: str, api_key: str):
         temperature=0.3
     )
 
-    # Узел 1: SCORER (для чата)
+    # Узел Scorer (для чата)
     def scorer_node(state: AgentState):
-        # Собираем контекст: описание + история + (если есть) прошлые отчеты
+        # Scorer теперь видит и описание, и историю, и результаты поиска (если они уже есть)
         context = f"Описание проекта: {state['project_description']}\n"
-        context += f"История чата: {state['chat_history']}\n"
-        if state.get('final_research'):
-            context += f"Текущие результаты анализа: {state['final_research']}"
+        context += f"История диалога: {state['chat_history']}\n"
+        if state.get('project_evaluation'):
+            context += f"\nРезультаты проведенного исследования:\n{state['project_evaluation']}"
 
         msg = llm.invoke([
-            SystemMessage(content=prompts.get("scorer", "")),
+            SystemMessage(content=prompts.get("scorer", "Ты помогаешь уточнять детали проекта.")),
             HumanMessage(content=context)
         ])
         return {"last_ai_message": msg.content}
 
-    # Узел 2: DEEP RESEARCH
+    # Узел Deep Research
     async def deep_research_node(state: AgentState):
-        full_text = f"Проект: {state['project_description']}\nИстория: {state['chat_history']}"
-        summaries, evaluation = await analyze_project_application(max_time_min=10, project_text=full_text)
-        return {"web_summaries": summaries, "final_research": evaluation}
+        full_context = f"Проект: {state['project_description']}\nКонтекст: {state['chat_history']}"
+        # Вызываем DeepSearch
+        summaries, evaluation = await analyze_project_application(max_time_min=10, project_text=full_context)
+        return {
+            "web_summaries_str": summaries,
+            "project_evaluation": evaluation
+        }
 
-    # Узел 3: TECH & TASKS
-    def tech_and_tasks_node(state: AgentState):
-        # Техплан
-        tech_res = llm.invoke([
-            SystemMessage(content=prompts.get("tech_group", "")),
-            HumanMessage(content=state['final_research'])
+    # Узел техплана (теперь опциональный шаг в цепочке)
+    def tech_node(state: AgentState):
+        tech_msg = llm.invoke([
+            SystemMessage(content=prompts.get("tech_group", "Составь технический план.")),
+            HumanMessage(content=state['project_evaluation'])
         ])
-        # Задачи
-        tasks_res = llm.invoke([
-            SystemMessage(content="На основе техплана составь список задач (Tasks) в Markdown."),
-            HumanMessage(content=tech_res.content)
-        ])
-        return {"technical_plan": tech_res.content, "tasks": tasks_res.content}
+        return {"technical_plan": tech_msg.content}
 
     workflow = StateGraph(AgentState)
     workflow.add_node("scorer", scorer_node)
     workflow.add_node("deep_research", deep_research_node)
-    workflow.add_node("tech_group", tech_and_tasks_node)
+    workflow.add_node("tech_group", tech_node)
 
-    # РОУТЕР: определяет куда идти в зависимости от команды
+    # Роутер для выбора пути
     def start_router(state: AgentState):
         if state["command"] == "search":
             return "deep_research"
@@ -170,19 +167,8 @@ def build_agent_graph(folder_id: str, api_key: str):
     return workflow.compile()
 
 # --- Функция для очистки названия ---
-def clean_filename(name: str, max_length: int = 30) -> str:
-    """Очищает строку для использования в названии файла/папки"""
-    # Оставляем только буквы, цифры, пробелы и дефисы
-    cleaned = re.sub(r'[^\w\s-]', '', name)
-    # Заменяем пробелы на подчеркивания
-    cleaned = re.sub(r'[-\s]+', '_', cleaned)
-    # Обрезаем до максимальной длины
-    if len(cleaned) > max_length:
-        cleaned = cleaned[:max_length]
-    # Убираем подчеркивания в начале и конце
-    cleaned = cleaned.strip('_')
-    # Если строка пустая, используем "project"
-    return cleaned if cleaned else "project"
+def clean_filename(name):
+    return re.sub(r'[\\/*?:"<>|]', "", name).replace(" ", "_")
 
 
 def save_reports_locally(state: dict):
@@ -193,16 +179,18 @@ def save_reports_locally(state: dict):
     path = os.path.join(reports_dir, f"report_{timestamp}")
     os.makedirs(path, exist_ok=True)
 
+    # Сохраняем только то, что просили
     files = {
-        "reports_data.md": f"# Выжимка из сети\n{state.get('web_summaries')}\n\n# Анализ\n{state.get('final_research')}\n\n# Техплан\n{state.get('technical_plan')}",
-        "tasks.md": state.get("tasks", "")
+        "web_summaries.md": state.get("web_summaries_str", ""),
+        "project_evaluation.md": state.get("project_evaluation", "")
     }
 
     for name, content in files.items():
-        with open(os.path.join(path, name), "w", encoding="utf-8") as f:
-            f.write(content)
+        if content:  # Сохраняем только если не пусто
+            with open(os.path.join(path, name), "w", encoding="utf-8") as f:
+                f.write(content)
 
-    return path, f"report_{timestamp}", "project"
+    return path, f"report_{timestamp}", "Project_Report"
 
 
 def upload_to_yandex_disk(local_path: str, folder_name: str, project_name: str, oauth_token: str) -> dict:

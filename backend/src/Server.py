@@ -61,36 +61,53 @@ async def process_project(req: ProjectRequest):
         initial_state = {
             "project_description": req.project_description,
             "chat_history": req.chat_history,
-            "command": req.command,  # "ask" или "search"
+            "command": req.command,
             "last_ai_message": "",
-            "web_summaries": "",
-            "final_research": "",
+            "web_summaries_str": "",
+            "project_evaluation": "",
             "technical_plan": "",
             "tasks": ""
         }
 
-        # Асинхронный запуск
+        # Выполняем асинхронно
         final_state = await agent_graph.ainvoke(initial_state)
 
         if req.command == "ask":
-            # Ответ для чата (className="send-button")
+            # Ответ для Scorer
             return {
                 "status": "interviewing",
                 "ai_message": final_state["last_ai_message"]
             }
 
         else:
-            # Ответ для кнопки Поиск (команда search)
-            # ВАЖНО: возвращаем ключи, которые ищет фронтенд для вкладок
-            return {
+            # Ответ для вкладки "Отчеты"
+            # Сохраняем локально (только те 2 файла)
+            saved_path, folder_name, project_name = save_reports_locally(final_state)
+
+            response_data = {
                 "status": "completed",
-                "web_summaries": final_state["web_summaries"],
-                "final_research": final_state["final_research"],
-                "technical_plan": final_state["technical_plan"],
-                "tasks": final_state["tasks"]
+                # Отдаем ключи, которые фронтенд ожидает увидеть во вкладке "Отчеты"
+                "web_summaries_str": final_state["web_summaries_str"],
+                "project_evaluation": final_state["project_evaluation"],
+                # Техплан можно передать, но на диск мы его не сохраняли
+                "technical_plan": final_state["technical_plan"]
             }
 
+            # Загрузка на Яндекс.Диск (если включено)
+            if req.upload_to_disk and CREDENTIALS["disk_token"]:
+                from src.pipeline import upload_to_yandex_disk
+                upload_to_yandex_disk(
+                    saved_path,
+                    folder_name,
+                    project_name,
+                    CREDENTIALS["disk_token"]
+                )
+
+            return response_data
+
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
