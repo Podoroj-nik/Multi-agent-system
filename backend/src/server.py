@@ -56,7 +56,7 @@ class ProjectRequest(BaseModel):
 @app.post("/api/process")
 async def process_project(req: ProjectRequest):
     try:
-        # CREDENTIALS должны быть инициализированы ранее в коде
+        # Инициализация графа с твоими ключами
         agent_graph = build_agent_graph(CREDENTIALS["folder_id"], CREDENTIALS["api_key"])
 
         initial_state = {
@@ -69,7 +69,7 @@ async def process_project(req: ProjectRequest):
             "technical_plan": ""
         }
 
-        # Асинхронный вызов графа
+        # Асинхронное выполнение
         final_state = await agent_graph.ainvoke(initial_state)
 
         if req.command == "ask":
@@ -79,24 +79,32 @@ async def process_project(req: ProjectRequest):
             }
 
         else:
-            # Сохранение только двух файлов
+            # Команда "search": сохраняем 2 файла локально
             saved_path, folder_name, project_name = save_reports_locally(final_state)
 
-            # Ответ, который фронтенд разложит по секциям
+            # Формируем ответ для фронтенда
+            # ВАЖНО: Ключи должны совпадать с теми, что ищет твой JS-код
             response_data = {
                 "status": "completed",
-                "web_summaries_str": final_state["web_summaries_str"],
-                "project_evaluation": final_state["project_evaluation"]
+                "web_summaries_str": final_state.get("web_summaries_str"),
+                "project_evaluation": final_state.get("project_evaluation")
             }
 
-            # Опциональная загрузка на Яндекс.Диск
+            # Загрузка на Яндекс.Диск (попадут только 2 созданных файла)
             if req.upload_to_disk and CREDENTIALS["disk_token"]:
                 from src.pipeline import upload_to_yandex_disk
-                upload_to_yandex_disk(saved_path, folder_name, project_name, CREDENTIALS["disk_token"])
+                upload_to_yandex_disk(
+                    saved_path,
+                    folder_name,
+                    project_name,
+                    CREDENTIALS["disk_token"]
+                )
 
             return response_data
 
     except Exception as e:
+        import traceback
+        print(traceback.format_exc())
         raise HTTPException(status_code=500, detail=str(e))
 
 
