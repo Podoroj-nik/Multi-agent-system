@@ -58,32 +58,28 @@ class ProjectRequest(BaseModel):
 @app.post("/api/process")
 async def process_project(req: ProjectRequest):
     try:
-        # 1. Формируем состояние для графа
+        # 1. Формируем состояние для графа по новому шаблону
         initial_state = {
             "project_description": req.project_description,
             "chat_history": req.chat_history,
             "command": req.command,
             "last_ai_message": "",
-            "research_optimist": "",
-            "research_pessimist": "",
-            "research_neutral": "",
+            "web_summaries": "",      # Новое поле
             "final_research": "",
             "technical_plan": ""
         }
 
-        # 2. Запускаем граф
-        final_state = agent_graph.invoke(initial_state)
+        # 2. Запускаем граф АСИНХРОННО (важное изменение: ainvoke вместо invoke)
+        final_state = await agent_graph.ainvoke(initial_state)
 
         # 3. Обработка результатов в зависимости от команды
         if req.command == "ask":
-            # Возвращаем только вопрос от Скоррера
             return {
                 "status": "interviewing",
                 "ai_message": final_state["last_ai_message"]
             }
 
         elif req.command == "search":
-            # Сохраняем локально
             saved_path, folder_name, project_name = save_reports_locally(final_state)
 
             response_data = {
@@ -93,7 +89,6 @@ async def process_project(req: ProjectRequest):
                 "local_path": saved_path
             }
 
-            # Загружаем на Яндекс.Диск если нужно
             if req.upload_to_disk and YANDEX_DISK_TOKEN:
                 disk_result = upload_to_yandex_disk(
                     saved_path,
@@ -121,7 +116,6 @@ async def process_project(req: ProjectRequest):
 
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
-
 
 @app.get("/api/health")
 async def health_check():
