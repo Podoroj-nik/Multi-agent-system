@@ -117,29 +117,27 @@ def build_agent_graph(folder_id: str, api_key: str):
         temperature=0.3
     )
 
-    # Узел Scorer для чата
     def scorer_node(state: AgentState):
         context = f"Проект: {state['project_description']}\nИстория: {state['chat_history']}"
         msg = llm.invoke([
-            SystemMessage(content=prompts.get("scorer", "")),
+            SystemMessage(content=prompts.get("scorer", "Ты аналитик.")),
             HumanMessage(content=context)
         ])
         return {"last_ai_message": msg.content}
 
-    # Узел Deep Research (Заполняет web_summaries_str и project_evaluation)
     async def deep_research_node(state: AgentState):
         full_text = f"Проект: {state['project_description']}\nКонтекст: {state['chat_history']}"
-        # Вызов твоей функции. Она возвращает кортеж (summaries, evaluation)
-        summaries, evaluation = await analyze_project_application(max_time_min=10, project_text=full_text)
+        # Вызов функции из DeepSearch.py (возвращает кортеж из двух строк)
+        w_str, p_eval = await analyze_project_application(max_time_min=10, project_text=full_text)
         return {
-            "web_summaries_str": summaries,
-            "project_evaluation": evaluation
+            "web_summaries_str": w_str,
+            "project_evaluation": p_eval
         }
 
-    # Узел техплана (выполняется, но не сохраняется в файлы)
     def tech_node(state: AgentState):
+        # Генерируем техплан, но не сохраняем в файлы
         msg = llm.invoke([
-            SystemMessage(content=prompts.get("tech_group", "")),
+            SystemMessage(content=prompts.get("tech_group", "Составь техплан.")),
             HumanMessage(content=state['project_evaluation'])
         ])
         return {"technical_plan": msg.content}
@@ -165,6 +163,10 @@ def clean_filename(name):
 
 
 def save_reports_locally(state: dict):
+    """
+    Сохраняет только два файла.
+    Критически важно вернуть 3 значения, чтобы Server.py не падал.
+    """
     reports_dir = os.path.join(BASE_DIR, "reports")
     os.makedirs(reports_dir, exist_ok=True)
 
@@ -173,11 +175,18 @@ def save_reports_locally(state: dict):
     path = os.path.join(reports_dir, folder_name)
     os.makedirs(path, exist_ok=True)
 
-    # Записываем только те файлы, что пойдут на диск и сайт
+    # Сохраняем только требуемые файлы
     files = {
         "web_summaries.md": state.get("web_summaries_str", ""),
         "project_evaluation.md": state.get("project_evaluation", "")
     }
+
+    for name, content in files.items():
+        with open(os.path.join(path, name), "w", encoding="utf-8") as f:
+            f.write(content if content else "Данные отсутствуют")
+
+    # ОБЯЗАТЕЛЬНО возвращаем кортеж из 3 элементов
+    return path, folder_name, "Project_Analysis"
 
 
 def upload_to_yandex_disk(local_path: str, folder_name: str, project_name: str, oauth_token: str) -> dict:

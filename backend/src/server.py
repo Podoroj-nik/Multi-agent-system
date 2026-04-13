@@ -56,7 +56,6 @@ class ProjectRequest(BaseModel):
 @app.post("/api/process")
 async def process_project(req: ProjectRequest):
     try:
-        # Инициализация графа с твоими ключами
         agent_graph = build_agent_graph(CREDENTIALS["folder_id"], CREDENTIALS["api_key"])
 
         initial_state = {
@@ -69,36 +68,33 @@ async def process_project(req: ProjectRequest):
             "technical_plan": ""
         }
 
-        # Асинхронное выполнение
+        # Асинхронно вызываем граф
         final_state = await agent_graph.ainvoke(initial_state)
 
         if req.command == "ask":
             return {
                 "status": "interviewing",
-                "ai_message": final_state["last_ai_message"]
+                "ai_message": final_state.get("last_ai_message", "")
             }
 
         else:
-            # Команда "search": сохраняем 2 файла локально
+            # Здесь теперь не будет ошибки TypeError, так как save_reports_locally возвращает 3 значения
             saved_path, folder_name, project_name = save_reports_locally(final_state)
 
-            # Формируем ответ для фронтенда
-            # ВАЖНО: Ключи должны совпадать с теми, что ищет твой JS-код
+            # Формируем плоский JSON для фронтенда
             response_data = {
                 "status": "completed",
-                "web_summaries_str": final_state.get("web_summaries_str"),
-                "project_evaluation": final_state.get("project_evaluation")
+                # Эти ключи фронтенд должен подставить в блоки 📋 и 🛠
+                "web_summaries_str": final_state.get("web_summaries_str", ""),
+                "project_evaluation": final_state.get("project_evaluation", "")
             }
 
-            # Загрузка на Яндекс.Диск (попадут только 2 созданных файла)
+            # Загрузка на диск
             if req.upload_to_disk and CREDENTIALS["disk_token"]:
-                from src.pipeline import upload_to_yandex_disk
-                upload_to_yandex_disk(
-                    saved_path,
-                    folder_name,
-                    project_name,
-                    CREDENTIALS["disk_token"]
-                )
+                try:
+                    upload_to_yandex_disk(saved_path, folder_name, project_name, CREDENTIALS["disk_token"])
+                except Exception as disk_err:
+                    print(f"Ошибка диска: {disk_err}")
 
             return response_data
 
