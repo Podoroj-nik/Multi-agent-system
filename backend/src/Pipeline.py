@@ -19,17 +19,19 @@ class AgentState(TypedDict):
     chat_history: str
     last_ai_message: str
     command: str
-    web_summaries: str      # Для вкладки "Отчеты"
-    final_research: str     # Для вкладки "Отчеты"
-    technical_plan: str     # Для вкладки "Отчеты"
-    tasks: str              # Для вкладки "Задачи"
+    # Данные для вкладки "Отчеты"
+    web_summaries: str
+    final_research: str
+    technical_plan: str
+    # Данные для вкладки "Задачи"
+    tasks: str
 
 def load_prompts():
     try:
         with open(PROMPTS_PATH, "r", encoding="utf-8") as f:
             return json.load(f)
     except Exception:
-        return {}
+        return {"scorer": "Ты помощник, который уточняет детали проекта.", "tech_group": "Составь техплан."}
 
 # --- Работа с Яндекс.Диском ---
 class YandexDiskUploader:
@@ -115,44 +117,55 @@ def build_agent_graph(folder_id: str, api_key: str):
         temperature=0.3
     )
 
-    # 1. Узел глубокого поиска (Deep Search)
-    async def deep_research_node(state: AgentState):
-        full_context = f"Проект: {state['project_description']}\nКонтекст: {state['chat_history']}"
-        # Вызываем твою функцию
-        summaries, evaluation = await analyze_project_application(max_time_min=10, project_text=full_context)
-        return {
-            "web_summaries": summaries,
-            "final_research": evaluation
-        }
+    # Узел 1: SCORER (для чата)
+    def scorer_node(state: AgentState):
+        # Собираем контекст: описание + история + (если есть) прошлые отчеты
+        context = f"Описание проекта: {state['project_description']}\n"
+        context += f"История чата: {state['chat_history']}\n"
+        if state.get('final_research'):
+            context += f"Текущие результаты анализа: {state['final_research']}"
 
-    # 2. Узел технического планирования и задач
-    def tech_node(state: AgentState):
-        # Генерируем тех. план на основе исследования
-        tech_msg = llm.invoke([
-            SystemMessage(content=prompts.get("tech_group", "Составь технический план реализации.")),
+        msg = llm.invoke([
+            SystemMessage(content=prompts.get("scorer", "")),
+            HumanMessage(content=context)
+        ])
+        return {"last_ai_message": msg.content}
+
+    # Узел 2: DEEP RESEARCH
+    async def deep_research_node(state: AgentState):
+        full_text = f"Проект: {state['project_description']}\nИстория: {state['chat_history']}"
+        summaries, evaluation = await analyze_project_application(max_time_min=10, project_text=full_text)
+        return {"web_summaries": summaries, "final_research": evaluation}
+
+    # Узел 3: TECH & TASKS
+    def tech_and_tasks_node(state: AgentState):
+        # Техплан
+        tech_res = llm.invoke([
+            SystemMessage(content=prompts.get("tech_group", "")),
             HumanMessage(content=state['final_research'])
         ])
-
-        # Генерируем конкретный список задач для вкладки "Задачи"
-        tasks_msg = llm.invoke([
-            SystemMessage(
-                content="На основе техплана выдели список конкретных задач для команды в формате Markdown списка."),
-            HumanMessage(content=tech_msg.content)
+        # Задачи
+        tasks_res = llm.invoke([
+            SystemMessage(content="На основе техплана составь список задач (Tasks) в Markdown."),
+            HumanMessage(content=tech_res.content)
         ])
+        return {"technical_plan": tech_res.content, "tasks": tasks_res.content}
 
-        return {
-            "technical_plan": tech_msg.content,
-            "tasks": tasks_msg.content
-        }
-
-    # Сборка графа
     workflow = StateGraph(AgentState)
+    workflow.add_node("scorer", scorer_node)
     workflow.add_node("deep_research", deep_research_node)
-    workflow.add_node("tech_group", tech_node)
+    workflow.add_node("tech_group", tech_and_tasks_node)
 
-    workflow.add_edge(START, "deep_research")
+    # РОУТЕР: определяет куда идти в зависимости от команды
+    def start_router(state: AgentState):
+        if state["command"] == "search":
+            return "deep_research"
+        return "scorer"
+
+    workflow.add_conditional_edges(START, start_router)
     workflow.add_edge("deep_research", "tech_group")
     workflow.add_edge("tech_group", END)
+    workflow.add_edge("scorer", END)
 
     return workflow.compile()
 

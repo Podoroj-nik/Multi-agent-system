@@ -56,13 +56,12 @@ class ProjectRequest(BaseModel):
 @app.post("/api/process")
 async def process_project(req: ProjectRequest):
     try:
-        # Получаем данные из CREDENTIALS (предполагается, что они загружены)
-        agent_graph = build_agent_graph(FOLDER_ID, API_KEY)
+        agent_graph = build_agent_graph(CREDENTIALS["folder_id"], CREDENTIALS["api_key"])
 
         initial_state = {
             "project_description": req.project_description,
             "chat_history": req.chat_history,
-            "command": req.command,
+            "command": req.command,  # "ask" или "search"
             "last_ai_message": "",
             "web_summaries": "",
             "final_research": "",
@@ -70,27 +69,30 @@ async def process_project(req: ProjectRequest):
             "tasks": ""
         }
 
-        # КРИТИЧНО: используем ainvoke для асинхронного графа
+        # Асинхронный запуск
         final_state = await agent_graph.ainvoke(initial_state)
 
-        # Сохранение (опционально)
-        save_reports_locally(final_state)
+        if req.command == "ask":
+            # Ответ для чата (className="send-button")
+            return {
+                "status": "interviewing",
+                "ai_message": final_state["last_ai_message"]
+            }
 
-        # Возвращаем структуру, которую ожидает твой фронтенд
-        return {
-            "status": "completed",
-            "reports": {
+        else:
+            # Ответ для кнопки Поиск (команда search)
+            # ВАЖНО: возвращаем ключи, которые ищет фронтенд для вкладок
+            return {
+                "status": "completed",
                 "web_summaries": final_state["web_summaries"],
-                "evaluation": final_state["final_research"],
-                "tech_plan": final_state["technical_plan"]
-            },
-            "tasks": final_state["tasks"] # Это пойдет во вкладку "Задачи"
-        }
+                "final_research": final_state["final_research"],
+                "technical_plan": final_state["technical_plan"],
+                "tasks": final_state["tasks"]
+            }
 
     except Exception as e:
-        import traceback
-        print(traceback.format_exc()) # Выведет реальную причину в консоль сервера
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/health")
 async def health_check():
@@ -102,8 +104,5 @@ async def health_check():
 
 # cd C:\Users\nikit\PycharmProjects\Multi-agent-system
 # .venv\Scripts\activate
-# uvicorn src.server:app --reload --host 127.0.0.1 --port 8000
-
-# cd C:\Users\nikit\PycharmProjects\Multi-agent-system
-# .venv\Scripts\activate
+# cd backend
 # uvicorn src.server:app --reload --host 127.0.0.1 --port 8000
