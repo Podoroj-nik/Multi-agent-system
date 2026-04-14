@@ -75,7 +75,7 @@ async def analyze_project_application(max_time_min: int, project_text: str) -> T
             return ""
 
     # --- ШАГ 1: Генерация 20 конкретных вопросов ---
-    logger.info("🧠 Шаг 1: Формирование списка из 20 вопросов для поиска...")
+    logger.info("Формирование списка из 20 вопросов для поиска...")
     step1_prompt = f"""Ты — эксперт-аудитор. Проанализируй проект:
 {project_text[:3500]}
 
@@ -94,7 +94,7 @@ async def analyze_project_application(max_time_min: int, project_text: str) -> T
     questions = questions[:20]  # Ограничиваем до 20
 
     # --- ШАГ 2: Поочередный поиск по каждому вопросу ---
-    logger.info(f"🔎 Шаг 2: Запуск 20 поисковых сессий. Лимит: {search_time_limit_sec} сек.")
+    logger.info(f"Запуск 20 поисковых сессий. Лимит: {search_time_limit_sec} сек.")
     visited_urls = set()
     web_summaries_list = []
 
@@ -147,7 +147,7 @@ async def analyze_project_application(max_time_min: int, project_text: str) -> T
     web_summaries_str = "\n".join(web_summaries_list)
 
     # --- ШАГ 3: Финальный аудит ---
-    logger.info("📊 Шаг 3: Формирование финального отчета...")
+    logger.info("Формирование финального отчета...")
     step3_prompt = f"""Проведи глубокий аудит инвестиционной заявки.
 Заявка: {project_text[:2500]}
 Найденные внешние данные по 20 пунктам: {web_summaries_str[:6000]}
