@@ -1,258 +1,298 @@
 
+# 🏗 Архитектура AI Project Manager Assistant
 
-```markdown
-# AI Project Manager Assistant
+## 1. Общий обзор
 
-Мультиагентная система для анализа и планирования IT-проектов с использованием YandexGPT.
+AI Project Manager Assistant — это мультиагентная   система, предназначенная для анализа и планирования IT-проектов в полуавтоматическом режиме. Система построена на микросервисной архитектуре, разворачиваемой с помощью Docker Compose, и состоит из двух основных частей: **фронтенда** (React + Nginx) и **бэкенда** (FastAPI + LangGraph). В качестве LLM используется YandexGPT.
 
-## 📋 Выбранное задание
+## 2. Диаграмма компонентов (C4 Model - Уровень контейнеров)
 
-**Кейс: Мультиагентная система оценки и планирования IT-проектов**
+```mermaid
+C4Context
+    title Архитектура AI PM Assistant в Docker
 
-Система в полуавтоматическом режиме под контролем работника анализирует заявки пользователей, проводит многостороннее исследование проекта и формирует технический план реализации.
+    Person(user, "Работник (PM)", "Взаимодействует с системой через браузер")
+    
+    System_Boundary(docker_host, "Docker Host") {
+        Container(nginx, "Nginx", "alpine", "Раздаёт статику и проксирует API запросы")
+        Container(frontend, "React SPA", "JavaScript, React", "Пользовательский интерфейс для общения с агентом")
+        Container(backend, "FastAPI Server", "Python, LangGraph", "Оркестрирует агентов и обрабатывает бизнес-логику")
+        ContainerDb(reports_vol, "Reports Volume", "File System", "Хранит сгенерированные .md отчёты")
+    }
 
-## 🏗 Архитектура решения
+    System_Ext(yandex_cloud, "Yandex Cloud", "Внешние облачные сервисы")
+    System_Ext(disk, "Яндекс.Диск", "Облачное хранилище для бэкапа отчётов")
 
-```
-┌─────────────────────────────────────────────────────────────┐  
-│ Пользователь │  
-│ (Web-интерфейс) │  
-└─────────────────────────┬───────────────────────────────────┘  
-│  
-▼  
-┌─────────────────────────────────────────────────────────────┐  
-│ Frontend (React) │  
-│ - Чат-интерфейс с Markdown │  
-│ - Загрузка/экспорт проектов (.aipm) │  
-│ - Вкладки: Чат, Отчеты, Задачи │  
-└─────────────────────────┬───────────────────────────────────┘  
-│  
-▼  
-┌─────────────────────────────────────────────────────────────┐  
-│ Backend (FastAPI) │  
-│ │  
-│ ┌────────────┐ ┌────────────┐ ┌────────────┐ │  
-│ │ Скорер │ │ Оптимист │ │ Критик │ │  
-│ │ (опрос) │ │ (анализ) │ │ (риски) │ │  
-│ └────────────┘ └────────────┘ └────────────┘ │  
-│ │  
-│ ┌────────────┐ ┌────────────┐ ┌────────────┐ │  
-│ │ Фактолог │ │ Синтезатор │ │ Тех.группа │ │  
-│ │ (рынок) │ │ (сводка) │ │ (план) │ │  
-│ └────────────┘ └────────────┘ └────────────┘ │  
-└─────────────────────────┬───────────────────────────────────┘  
-│  
-▼  
-┌─────────────────────────────────────────────────────────────┐  
-│ YandexGPT API │  
-└─────────────────────────────────────────────────────────────┘  
-│  
-▼  
-┌─────────────────────────────────────────────────────────────┐  
-│ Локальное хранилище │  
-│ + Яндекс.Диск │  
-└─────────────────────────────────────────────────────────────┘
-
----
-
-
-## 🤖 Команда AI-агентов
-
-| Агент | Роль | Функции |
-|-------|------|---------|
-| 🎯 **Скорер** | Интервьюер | Задает уточняющие вопросы, помогает понять суть проекта |
-| 🌟 **Оптимист** | Аналитик | Находит сильные стороны и возможности проекта |
-| ⚠️ **Критик** | Риск-менеджер | Выявляет риски и слабые места |
-| 📚 **Фактолог** | Исследователь | Анализирует рынок, конкурентов, технологии |
-| 🔄 **Синтезатор** | Координатор | Объединяет выводы агентов в единый отчет |
-| 🔧 **Тех. группа** | Архитектор | Разрабатывает технический план реализации |
-
-## 🔄 Процесс работы
-
-1. **Описание проекта** - пользователь описывает идею в чате или загружает .md файл
-2. **Уточнение (Скорер)** - AI задает уточняющие вопросы для полного понимания
-3. **Исследование** - команда из 3 агентов анализирует проект с разных сторон
-4. **Синтез** - объединение выводов в структурированный отчет
-5. **Технический план** - формирование плана реализации и списка задач
-6. **Сохранение** - отчеты сохраняются локально и на Яндекс.Диск
-
----
-
-## 📁 Структура проекта
-
-```
-Multi-agent-system/
-├── backend/
-│   ├── src/
-│   │   ├── pipeline.py      # Граф агентов на LangGraph
-│   │   └── server.py        # FastAPI эндпоинты
-│   ├── data/
-│   │   ├── prompts.json     # Промпты для агентов
-│   │   └── .gitignore       # Ключи API (исключен из Git)
-│   ├── reports/             # Сгенерированные отчеты
-│   ├── requirements.txt     # Python зависимости
-│   └── Dockerfile
-├── frontend/
-│   ├── src/
-│   │   ├── App.jsx          # Главный компонент React
-│   │   ├── App.css          # Стили
-│   │   └── index.js         # Точка входа
-│   ├── public/
-│   │   └── index.html
-│   ├── package.json
-│   ├── package-lock.json
-│   ├── nginx.conf
-│   └── Dockerfile
-├── docker-compose.yml
-├── .env                     # Переменные окружения (исключен из Git)
-├── DEPLOY.md                # Инструкция по деплою
-└── README.md                # Этот файл
+    Rel(user, nginx, "HTTPS (опционально) / HTTP", "TCP 80")
+    Rel(nginx, frontend, "Раздача статических файлов")
+    Rel(nginx, backend, "Проксирует /api/*", "HTTP")
+    Rel(backend, yandex_cloud, "Вызов YandexGPT API", "gRPC/REST")
+    Rel(backend, disk, "Загрузка отчётов", "REST API (OAuth)")
+    Rel(backend, reports_vol, "Запись .md файлов", "File I/O")
+    
+    UpdateLayoutConfig($c4ShapeInRow="3", $c4BoundaryInRow="1")
 ```
 
----
+## 3. Внутренняя архитектура бэкенда (LangGraph)
 
-## 🚀 Быстрый старт
+Сердцем системы является граф агентов, построенный на **LangGraph**. Он управляет состояниями и переходами между различными AI-агентами.
 
-```bash
-# 1. Клонирование
-git clone <repo-url>
-cd Multi-agent-system
+### Диаграмма потока состояний (StateGraph)
 
-# 2. Настройка ключей
-cp .env.example .env
-# Отредактируйте .env, добавив ключи Yandex Cloud
+```mermaid
+stateDiagram-v2
+    [*] --> START
+    START --> start_router: Выбор пути
+    start_router --> scorer: command="ask"
+    start_router --> optimist: command="search"
+    start_router --> pessimist: command="search"
+    start_router --> neutral: command="search"
 
-# 3. Запуск
-docker-compose up -d
+    state scorer {
+        [*] --> InvokeLLM: Вопрос пользователю
+        InvokeLLM --> [*]: Возврат вопроса
+    }
 
-# 4. Открыть в браузере
-# http://localhost
+    state optimist {
+        [*] --> SearchAndAnalyze: Поиск возможностей
+        SearchAndAnalyze --> [*]: Отчёт Оптимиста
+    }
+
+    state pessimist {
+        [*] --> SearchAndAnalyze: Поиск рисков
+        SearchAndAnalyze --> [*]: Отчёт Критика
+    }
+
+    state neutral {
+        [*] --> SearchAndAnalyze: Поиск фактов
+        SearchAndAnalyze --> [*]: Отчёт Фактолога
+    }
+
+    state synthesizer {
+        [*] --> Combine: Объединение отчётов
+        Combine --> [*]: Сводный анализ
+    }
+
+    state tech_group {
+        [*] --> Plan: Создание тех. плана
+        Plan --> [*]: Технический план
+    }
+
+    scorer --> END
+    optimist --> synthesizer
+    pessimist --> synthesizer
+    neutral --> synthesizer
+    synthesizer --> tech_group
+    tech_group --> END
 ```
 
-## 🔑 Требуемые API ключи
+### Роли агентов и их промпты
 
-| Ключ | Назначение | Получение |
-|------|------------|-----------|
-| `YANDEX_FOLDER_ID` | ID каталога Yandex Cloud | [Консоль облака](https://console.cloud.yandex.ru) |
-| `YANDEX_API_KEY` | API ключ для YandexGPT | Сервисный аккаунт с ролью `ai.languageModels.user` |
-| `YANDEX_DISK_TOKEN` | OAuth токен Яндекс.Диска | [Полигон Яндекс.Диска](https://yandex.ru/dev/disk/poligon/) |
+| Агент | Файл промпта (в `data/prompts.json`) | Задача |
+| :--- | :--- | :--- |
+| **Скорер (Scorer)** | `scorer` | Генерация уточняющих вопросов для сбора требований. |
+| **Оптимист** | `optimist` | Анализ сильных сторон, возможностей и потенциала. |
+| **Критик (Pessimist)** | `pessimist` | Выявление рисков, слабых мест и угроз. |
+| **Фактолог (Neutral)** | `neutral` | Объективный анализ рынка, конкурентов и технологий. |
+| **Синтезатор** | `synthesizer` | Объединение выводов трёх предыдущих агентов в единый структурированный отчёт. |
+| **Тех. группа** | `tech_group` | Разработка технического плана и MVP на основе сводного анализа. |
 
-## 🛠 Технологический стек
+## 4. Интерфейсы взаимодействия (Frontend ↔ Backend)
 
-### Backend
-- **FastAPI** - веб-фреймворк
-- **LangGraph** - оркестрация мультиагентной системы
-- **LangChain** - интеграция с LLM
-- **YandexGPT** - языковая модель
-- **Uvicorn** - ASGI сервер
+### Схема потоков данных
 
-### Frontend
-- **React 18** - UI библиотека
-- **ReactMarkdown** - рендеринг Markdown
-- **CSS Modules** - стилизация
+```mermaid
+sequenceDiagram
+    participant User as 👤 PM
+    participant Browser as 🌐 Браузер (React)
+    participant Nginx as 🟢 Nginx (Frontend)
+    participant FastAPI as 🔵 FastAPI (Backend)
+    participant Yandex as ☁️ YandexGPT
 
-### Инфраструктура
-- **Docker** - контейнеризация
-- **Docker Compose** - оркестрация контейнеров
-- **Nginx** - веб-сервер для статики и прокси
+    User->>Browser: Вводит описание проекта
+    Browser->>Nginx: POST /api/process {command: "ask"}
+    Nginx->>FastAPI: Проксирование запроса
+    FastAPI->>Yandex: Промпт для Скорера
+    Yandex-->>FastAPI: Уточняющий вопрос
+    FastAPI-->>Nginx: {status: "interviewing", ai_message: "..."}
+    Nginx-->>Browser: JSON-ответ
+    Browser->>User: Отображает вопрос
 
-## 📦 Формат экспорта проектов
+    User->>Browser: Отвечает на вопросы / Нажимает "Исследовать"
+    Browser->>Nginx: POST /api/process {command: "search"}
+    Nginx->>FastAPI: Прокидывает запрос
+    FastAPI->>Yandex: Параллельные запросы (Оптимист, Критик, Фактолог)
+    Yandex-->>FastAPI: Три отчёта
+    FastAPI->>FastAPI: Вызов Синтезатора и Тех. Группы
+    FastAPI->>FastAPI: Сохранение отчётов локально и на Яндекс.Диск
+    FastAPI-->>Nginx: {status: "completed", final_research: "...", technical_plan: "..."}
+    Nginx-->>Browser: JSON с отчётами
+    Browser->>User: Отображает вкладку "Отчёты"
+```
 
-Проекты экспортируются в файлы `.aipm` (JSON формат):
+### API-контракт
 
+Бэкенд предоставляет единственный основной эндпоинт для всего взаимодействия:
+
+**`POST /api/process`**
+
+**Тело запроса (`ProjectRequest`):**
+
+```json
+{
+  "project_description": "string",
+  "chat_history": "string",
+  "command": "ask" | "search",
+  "upload_to_disk": boolean
+}
+```
+
+**Тело ответа (`ProjectResponse`):**
+
+*   **Для `command: "ask"`**
+    ```json
+    {
+      "status": "interviewing",
+      "ai_message": "string"
+    }
+    ```
+
+*   **Для `command: "search"`**
+    ```json
+    {
+      "status": "completed",
+      "final_research": "string",
+      "technical_plan": "string",
+      "local_path": "string",
+      "disk_upload": {
+        "status": "success" | "failed",
+        "share_link": "string?",
+        "error": "string?"
+      }
+    }
+    ```
+
+## 5. Модель данных состояния (AgentState)
+
+Состояние, которое передаётся между узлами графа LangGraph, определено в `pipeline.py` как `TypedDict`:
+
+```python
+class AgentState(TypedDict):
+    project_description: str
+    chat_history: str
+    last_ai_message: str
+    command: str  # "ask" или "search"
+    research_optimist: str
+    research_pessimist: str
+    research_neutral: str
+    final_research: str
+    technical_plan: str
+```
+
+## 6. Стратегия развёртывания (Deployment View)
+
+Проект полностью контейнеризирован и может быть развёрнут в любом окружении с поддержкой Docker.
+
+```mermaid
+graph TD
+    subgraph "Production / VPS"
+        direction TB
+        Host[Docker Host] --> DockerCompose[docker-compose.yml]
+        DockerCompose --> FrontendContainer[ai-pm-frontend]
+        DockerCompose --> BackendContainer[ai-pm-backend]
+        FrontendContainer -- "Прокси /api" --> BackendContainer
+        BackendContainer -- "Volume mapping" --> HostFS[(./reports)]
+    end
+
+    subgraph "External Services"
+        BackendContainer -- "gRPC/REST" --> YandexGPT[YandexGPT API]
+        BackendContainer -- "OAuth REST" --> YandexDisk[Яндекс.Диск]
+    end
+
+    User(Пользователь) -- "HTTP :80" --> FrontendContainer
+```
+
+### Процесс деплоя (из `DEPLOY.md`)
+
+1.  **Подготовка VPS**: Установка Docker и Docker Compose.
+2.  **Клонирование**: `git clone <repo>`
+3.  **Конфигурация**: Создание файла `.env` с ключами API.
+4.  **Запуск**: `docker-compose up -d`
+
+Эта архитектура обеспечивает чёткое разделение ответственности, масштабируемость и простоту развёртывания, что делает систему надёжной и удобной для дальнейшего развития.
+
+Вот продолжение подробного архитектурного документа, охватывающее детали реализации фронтенда, формат обмена данными и инфраструктурные особенности.
+
+
+## 7. Детальная архитектура фронтенда (React)
+
+Фронтенд построен как одностраничное приложение (SPA) на React и имеет модульную структуру.
+
+### Структура компонентов
+
+```mermaid
+graph TD
+    App[App.jsx - Корневой компонент] --> WelcomeScreen[WelcomeScreen]
+    App --> MainLayout[MainLayout]
+
+    subgraph MainLayout [Основной интерфейс]
+        Sidebar[Sidebar]
+        Tabs[Tabs Container]
+        
+        Sidebar --> ProjectActions[Project Actions]
+        Sidebar --> ChatHistory[Chat History]
+        
+        Tabs --> ChatTab[Чат]
+        Tabs --> ReportsTab[Отчёты]
+        Tabs --> TasksTab[Задачи]
+        
+        ChatTab --> MessageBubble[Message Bubble]
+        MessageBubble --> ReactMarkdown[React-Markdown]
+        ChatTab --> InputArea[Input Area + File Upload]
+    end
+```
+
+### Жизненный цикл состояний в React
+
+```mermaid
+stateDiagram-v2
+    [*] --> Welcome: showWelcome = true
+    Welcome --> Chat: handleStartNew / handleOpenProject
+    Chat --> Chat: Отправка сообщения (command='ask')
+    Chat --> Loading: Запуск исследования (command='search')
+    Loading --> Reports: Исследование завершено
+    Reports --> Chat: Переход по вкладкам
+    Reports --> Tasks: Просмотр задач
+    Chat --> Welcome: handleNewProject
+```
+
+### Формат обмена данными с бэкендом
+
+Фронтенд использует `fetch` для отправки запросов на `/api/process`. Вся история диалога хранится в состоянии `projectContext.chatHistory` и сериализуется для бэкенда в строку с помощью `formatChatHistoryForBackend`.
+
+```javascript
+// Пример преобразования перед отправкой
+const formatChatHistoryForBackend = (history) => {
+  return history.map(item =>
+    `${item.role === 'user' ? 'User' : 'AI'}: ${item.content}`
+  ).join('\n');
+};
+```
+
+### Экспорт и импорт проектов
+
+Проекты сохраняются в файлы с расширением `.aipm`, которые являются ZIP-архивами в формате JSON. Это позволяет переносить состояние диалога и результаты анализа между сессиями.
+
+**Структура `.aipm` файла:**
 ```json
 {
   "version": "1.0",
-  "exportedAt": "2026-04-10T12:00:00.000Z",
+  "exportedAt": "2026-04-14T...",
   "messages": [...],
   "chatHistory": [...],
-  "reports": {...}
+  "reports": {
+    "final_research": "...",
+    "technical_plan": "..."
+  }
 }
 ```
-
-## 🌐 API Endpoints
-
-| Метод | Путь | Описание |
-|-------|------|----------|
-| POST | `/api/process` | Обработка сообщений и запуск исследования |
-| GET | `/api/health` | Проверка состояния сервера |
-
-### Пример запроса
-
-```json
-POST /api/process
-{
-  "project_description": "Создать мобильное приложение для доставки еды",
-  "chat_history": "User: Хочу сделать аналог Delivery Club\nAI: Какая целевая аудитория?",
-  "command": "ask"
-}
-```
-
-### Пример ответа
-
-```json
-{
-  "status": "interviewing",
-  "ai_message": "Какой бюджет вы планируете на разработку MVP?"
-}
-```
-
-## 🧪 Тестирование
-
-```bash
-# Проверка бэкенда
-curl http://localhost:8000/api/health
-
-# Просмотр логов
-docker-compose logs -f backend
-
-# Запуск тестов (если есть)
-docker exec ai-pm-backend pytest
-```
-
-## 📊 Формат отчетов
-
-После исследования создаются файлы:
-
-| Файл | Содержание |
-|------|------------|
-| `1_full_analysis.md` | Полный анализ проекта |
-| `2_tech_plan.md` | Технический план реализации |
-| `3_raw_research.md` | Исходные исследования агентов |
-| `context.md` | Контекст и история диалога |
-| `README.md` | Описание структуры отчета |
-
-## 🔒 Безопасность
-
-- API ключи хранятся в `.env` (исключен из Git)
-- CORS настроен для разрешенных доменов
-- Nginx проксирует запросы к API
-- Контейнеры изолированы в отдельной сети
-
-## 📈 Производительность
-
-| Метрика              | Значение   |
-| -------------------- | ---------- |
-| Время ответа скорера | ~2-3 сек   |
-| Время исследования   | ~20-30 сек |
-| Память бэкенда       | ~512 MB    |
-| Память фронтенда     | ~128 MB    |
-
-## 📝 Лицензия
-
-MIT License
-
-## 🐛 Известные ограничения
-
-- Максимальная длина контекста YandexGPT - 8000 токенов
-- Загрузка больших .md файлов может замедлить обработку
-- Требуется стабильное интернет-соединение для API запросов
-
-## 🔮 Планы по развитию
-
-- [ ] Добавление агента-рекрутера для создания вакансий
-- [ ] Интеграция с Jira/Trello для экспорта задач
-- [ ] Поддержка голосового ввода
-- [ ] Мультиязычный интерфейс
-- [ ] Кэширование ответов для ускорения
-- [ ] Метрики и аналитика использования
