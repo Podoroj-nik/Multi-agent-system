@@ -1,5 +1,7 @@
 import React, { useState, useRef, useEffect } from 'react';
+import { BrowserRouter, Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import ReactMarkdown from 'react-markdown';
+import WelcomeScreen from './components/WelcomeScreen';
 import './App.css';
 
 // Компонент для отображения сообщений с Markdown
@@ -103,128 +105,8 @@ const Tab = ({ id, label, icon, isActive, onClick }) => {
   );
 };
 
-// Стартовое окно
-const WelcomeScreen = ({ onStartNew, onOpenProject, onFileUpload }) => {
-  const fileInputRef = useRef(null);
-
-  return (
-    <div className="welcome-screen">
-      <div className="welcome-content">
-        <h1 className="welcome-title">
-          AI Project Manager Assistant
-        </h1>
-
-        <p className="welcome-subtitle">
-          Мультиагентная система для анализа и планирования IT-проектов
-        </p>
-
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">🔍</div>
-            <h3>Скоринг проекта</h3>
-            <p>AI-агент анализирует идею, задает уточняющие вопросы и помогает определить жизнеспособность проекта</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">🧠</div>
-            <h3>Мультиагентный анализ</h3>
-            <p>Три независимых агента (Оптимист, Критик, Фактолог) исследуют проект с разных точек зрения</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">📊</div>
-            <h3>Исследование рынка</h3>
-            <p>Автоматический поиск конкурентов, анализ рисков и формирование гипотез для MVP</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">🛠</div>
-            <h3>Технический план</h3>
-            <p>Создание детального плана реализации, подбор технологического стека и инфраструктуры</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">👥</div>
-            <h3>Формирование команды</h3>
-            <p>Генерация описаний вакансий и оценка необходимых ресурсов для реализации проекта</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">☁️</div>
-            <h3>Сохранение в облаке</h3>
-            <p>Автоматическая выгрузка всех отчетов на Яндекс.Диск с удобной структурой хранения</p>
-          </div>
-        </div>
-
-        <div className="agents-section">
-          <h2>Команда AI-агентов</h2>
-          <div className="agents-list">
-            <div className="agent-item">
-              <span className="agent-emoji">🎯</span>
-              <div className="agent-info">
-                <strong>Скорер</strong>
-                <p>Помогает уточнить детали проекта через серию целенаправленных вопросов</p>
-              </div>
-            </div>
-            <div className="agent-item">
-              <span className="agent-emoji">🌟</span>
-              <div className="agent-info">
-                <strong>Оптимист</strong>
-                <p>Находит сильные стороны и потенциальные возможности проекта</p>
-              </div>
-            </div>
-            <div className="agent-item">
-              <span className="agent-emoji">⚠️</span>
-              <div className="agent-info">
-                <strong>Критик</strong>
-                <p>Выявляет риски, слабые места и потенциальные проблемы</p>
-              </div>
-            </div>
-            <div className="agent-item">
-              <span className="agent-emoji">📚</span>
-              <div className="agent-info">
-                <strong>Фактолог</strong>
-                <p>Предоставляет объективную информацию о рынке и технологиях</p>
-              </div>
-            </div>
-            <div className="agent-item">
-              <span className="agent-emoji">🔧</span>
-              <div className="agent-info">
-                <strong>Техническая группа</strong>
-                <p>Разрабатывает план реализации и технические рекомендации</p>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        <div className="welcome-actions">
-          <button className="welcome-btn primary" onClick={onStartNew}>
-            🚀 Начать новый проект
-          </button>
-          <button className="welcome-btn secondary" onClick={onOpenProject}>
-            📂 Открыть проект
-          </button>
-          <button className="welcome-btn secondary" onClick={() => fileInputRef.current?.click()}>
-            📄 Загрузить из .md
-          </button>
-          <input
-            type="file"
-            ref={fileInputRef}
-            onChange={onFileUpload}
-            accept=".md,.markdown"
-            style={{ display: 'none' }}
-          />
-        </div>
-
-        <p className="welcome-footer">
-          Система использует YandexGPT для анализа и генерации контента
-        </p>
-      </div>
-    </div>
-  );
-};
-
-function App() {
+// Основной компонент рабочей области
+const Workspace = () => {
   const [messages, setMessages] = useState([]);
   const [inputValue, setInputValue] = useState('');
   const [activeTab, setActiveTab] = useState('chat');
@@ -236,12 +118,12 @@ function App() {
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [attachedFile, setAttachedFile] = useState(null);
   const [isNewProject, setIsNewProject] = useState(true);
-  const [showWelcome, setShowWelcome] = useState(true);
 
   const messagesEndRef = useRef(null);
   const inputRef = useRef(null);
   const fileInputRef = useRef(null);
   const projectFileInputRef = useRef(null);
+  const navigate = useNavigate();
 
   const scrollToBottom = () => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
@@ -250,6 +132,36 @@ function App() {
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
+
+  // Добавьте в компонент Workspace после всех useState
+    useEffect(() => {
+      const importContent = sessionStorage.getItem('importFileContent');
+      const importProjectContent = sessionStorage.getItem('importProjectContent');
+
+      if (importContent) {
+        setAttachedFile({
+          name: sessionStorage.getItem('importFileName') || 'imported.md',
+          content: importContent
+        });
+        sessionStorage.removeItem('importFileContent');
+        sessionStorage.removeItem('importFileName');
+        addMessage(`📄 Файл "${sessionStorage.getItem('importFileName')}" прикреплен.`, false);
+      }
+
+      if (importProjectContent) {
+        try {
+          const projectData = JSON.parse(importProjectContent);
+          if (projectData.messages) setMessages(projectData.messages);
+          if (projectData.chatHistory) setProjectContext({ chatHistory: projectData.chatHistory });
+          if (projectData.reports) setReports(projectData.reports);
+          addMessage(`📂 Проект загружен: ${sessionStorage.getItem('importProjectName')}`, false);
+        } catch (e) {
+          console.error('Import error:', e);
+        }
+        sessionStorage.removeItem('importProjectContent');
+        sessionStorage.removeItem('importProjectName');
+      }
+    }, []);
 
   // Проверяем, есть ли реальный проект (сообщения от пользователя)
   const hasRealProject = () => {
@@ -407,7 +319,6 @@ function App() {
         name: file.name,
         content: content
       });
-      setShowWelcome(false);
       addMessage(`📄 Файл "${file.name}" прикреплен. Введите ваш комментарий и отправьте сообщение.`, false);
     };
 
@@ -491,7 +402,6 @@ function App() {
 
         const hasUserMessages = projectData.chatHistory?.some(item => item.role === 'user') || false;
         setIsNewProject(!hasUserMessages);
-        setShowWelcome(false);
 
         setActiveTab('chat');
         addMessage(`📂 Проект загружен: ${file.name}`, false);
@@ -523,7 +433,6 @@ function App() {
     setAttachedFile(null);
     setInputValue('');
     setIsNewProject(true);
-    setShowWelcome(false);
 
     const timestamp = new Date().toLocaleTimeString('ru-RU', {
       hour: '2-digit',
@@ -547,23 +456,17 @@ function App() {
     });
   };
 
-  const handleStartFromWelcome = () => {
-    setShowWelcome(false);
-    handleNewProject();
-  };
-
-  const handleOpenFromWelcome = () => {
-    setShowWelcome(false);
-    setTimeout(() => {
-      projectFileInputRef.current?.click();
-    }, 100);
-  };
-
-  const handleFileFromWelcome = (event) => {
-    handleFileUpload(event);
-    if (event.target.files[0]) {
-      setShowWelcome(false);
+  const handleGoToWelcome = () => {
+    if (hasRealProject()) {
+      if (!window.confirm('Вы уверены? Текущий диалог будет очищен.')) {
+        return;
+      }
     }
+    setMessages([]);
+    setProjectContext({ chatHistory: [] });
+    setReports(null);
+    setAttachedFile(null);
+    navigate('/');
   };
 
   const tabs = [
@@ -573,16 +476,6 @@ function App() {
   ];
 
   const hasProject = hasRealProject();
-
-  if (showWelcome) {
-    return (
-      <WelcomeScreen
-        onStartNew={handleStartFromWelcome}
-        onOpenProject={handleOpenFromWelcome}
-        onFileUpload={handleFileFromWelcome}
-      />
-    );
-  }
 
   return (
     <div className="app-container">
@@ -648,6 +541,13 @@ function App() {
               {sidebarOpen ? '📂 Открыть проект' : '📂'}
             </button>
           )}
+          <button
+            className="action-btn"
+            onClick={handleGoToWelcome}
+            title={!sidebarOpen ? "Главная" : "На главную"}
+          >
+            {sidebarOpen ? '🏠 На главную' : '🏠'}
+          </button>
         </div>
 
         <div className="chat-history">
@@ -919,6 +819,18 @@ function App() {
         </div>
       </div>
     </div>
+  );
+};
+
+// Корневой компонент с роутингом
+function App() {
+  return (
+    <BrowserRouter>
+      <Routes>
+        <Route path="/" element={<WelcomeScreen />} />
+        <Route path="/workspace" element={<Workspace />} />
+      </Routes>
+    </BrowserRouter>
   );
 }
 
