@@ -1,14 +1,10 @@
 import os
-from fastapi import FastAPI, HTTPException, Depends
+from fastapi import FastAPI, HTTPException, Depends  # Добавлен Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-
-# Импорт роутеров - ДОЛЖЕН БЫТЬ ПЕРЕД СОЗДАНИЕМ APP
-from src.routers import auth, projects, applications
-
-# Импорт остальных модулей
 from src.pipeline import build_agent_graph, save_reports_locally, upload_to_yandex_disk
 from src.database import init_database, db_pool
+from src.routers import auth, projects, applications
 from src.auth import get_current_admin
 import base64
 
@@ -38,7 +34,6 @@ def get_credentials():
 
 CREDENTIALS = get_credentials()
 
-# СОЗДАНИЕ APP
 app = FastAPI(title="AI Agent PM Platform")
 
 # CORS middleware
@@ -50,16 +45,10 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ПОДКЛЮЧЕНИЕ РОУТЕРОВ - проверка что они импортированы
-print("🔌 Connecting routers...")
-print(f"  - Auth router: {auth.router}")
-print(f"  - Projects router: {projects.router}")
-print(f"  - Applications router: {applications.router}")
-
+# Подключаем роутеры
 app.include_router(auth.router)
 app.include_router(projects.router)
 app.include_router(applications.router)
-print("✅ All routers connected")
 
 
 # Модели для Workspace интеграции
@@ -75,7 +64,7 @@ class ExportToExchangeRequest(BaseModel):
     description: str
     hard_skills: str = ""
     soft_skills: str = ""
-    aipm_content: str
+    aipm_content: str  # base64 encoded content
 
 
 @app.on_event("startup")
@@ -97,21 +86,6 @@ async def root():
     return {"message": "AI Agent PM Platform API", "status": "running"}
 
 
-@app.get("/api/debug/routes")
-async def debug_routes():
-    """Отладка: список всех роутов"""
-    routes = []
-    for route in app.routes:
-        routes.append({
-            "path": route.path,
-            "methods": list(route.methods) if hasattr(route, 'methods') else []
-        })
-    return {
-        "total_routes": len(routes),
-        "routes": routes
-    }
-
-
 @app.post("/api/process")
 async def process_project(req: ProjectRequest):
     try:
@@ -127,6 +101,7 @@ async def process_project(req: ProjectRequest):
             "technical_plan": ""
         }
 
+        # Асинхронно вызываем граф
         final_state = await agent_graph.ainvoke(initial_state)
 
         if req.command == "ask":
@@ -143,6 +118,7 @@ async def process_project(req: ProjectRequest):
                 "project_evaluation": final_state.get("project_evaluation", "")
             }
 
+            # Загрузка на диск
             if req.upload_to_disk and CREDENTIALS["disk_token"]:
                 try:
                     upload_to_yandex_disk(saved_path, folder_name, project_name, CREDENTIALS["disk_token"])
@@ -165,6 +141,7 @@ async def export_to_exchange(
     """Экспорт проекта из Workspace на биржу"""
     from src.routers.projects import PROJECTS_DIR
 
+    # Создание проекта в БД
     async with db_pool.get_connection() as cursor:
         await cursor.execute(
             """INSERT INTO projects (name, description, hard_skills, soft_skills, status, created_by_admin)
@@ -174,13 +151,16 @@ async def export_to_exchange(
         )
         project_id = cursor.lastrowid
 
+    # Сохранение .aipm файла
     project_dir = os.path.join(PROJECTS_DIR, str(project_id))
     os.makedirs(project_dir, exist_ok=True)
     file_path = os.path.join(project_dir, "project.aipm")
 
+    # Декодирование base64 и сохранение
     with open(file_path, "wb") as f:
         f.write(base64.b64decode(export_data.aipm_content))
 
+    # Обновление пути в БД
     async with db_pool.get_connection() as cursor:
         await cursor.execute(
             "UPDATE projects SET project_file_path = %s WHERE id = %s",
@@ -196,6 +176,7 @@ async def load_from_exchange(
         current_admin=Depends(get_current_admin)
 ):
     """Загрузка проекта с биржи в Workspace"""
+    import base64
     from src.routers.projects import PROJECTS_DIR
 
     async with db_pool.get_connection() as cursor:
@@ -211,6 +192,7 @@ async def load_from_exchange(
         if not os.path.exists(project["project_file_path"]):
             raise HTTPException(status_code=404, detail="File not found on disk")
 
+        # Чтение файла и возврат в base64 для фронтенда
         with open(project["project_file_path"], "rb") as f:
             file_content = base64.b64encode(f.read()).decode('utf-8')
 
@@ -230,6 +212,7 @@ async def health_check():
     }
 
 
+# Запуск сервера
 if __name__ == "__main__":
     import uvicorn
 

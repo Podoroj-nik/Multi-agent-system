@@ -121,9 +121,3 @@ async def init_database():
         """)
 
         print("✅ Database tables created/verified")
-
-
-
-# cd C:\Users\nikit\PycharmProjects\Multi-agent-system\backend
-# ..\.venv\Scripts\activate
-# uvicorn src.server:app --reload --host 127.0.0.1 --port 8000

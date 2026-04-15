@@ -19,18 +19,34 @@ MASTER_KEY = os.getenv('MASTER_KEY')
 if not SECRET_KEY:
     raise ValueError("JWT_SECRET_KEY must be set in .env file")
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-security = HTTPBearer()
+# Используем pbkdf2_sha256 вместо bcrypt
+pwd_context = CryptContext(
+    schemes=["pbkdf2_sha256"],
+    deprecated="auto"
+)
+
+security = HTTPBearer(auto_error=False)  # Важно: auto_error=False
 
 
 def verify_password(plain_password: str, hashed_password: str) -> bool:
     """Проверка пароля"""
-    return pwd_context.verify(plain_password, hashed_password)
+    try:
+        return pwd_context.verify(plain_password, hashed_password)
+    except Exception as e:
+        print(f"Password verification error: {e}")
+        return False
 
 
 def get_password_hash(password: str) -> str:
     """Хеширование пароля"""
-    return pwd_context.hash(password)
+    try:
+        return pwd_context.hash(password)
+    except Exception as e:
+        print(f"Password hashing error: {e}")
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail=f"Error hashing password: {str(e)}"
+        )
 
 
 def create_access_token(data: Dict[str, Any]) -> str:
@@ -58,17 +74,17 @@ def decode_token(token: str) -> Optional[Dict[str, Any]]:
         return None
 
 
-async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(security)) -> Dict[str, Any]:
-    """Получение текущего пользователя из JWT"""
+async def get_current_user(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Optional[
+    Dict[str, Any]]:
+    """Получение текущего пользователя из JWT (возвращает None если не авторизован)"""
+    if not credentials:
+        return None
+
     token = credentials.credentials
     payload = decode_token(token)
 
     if payload is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
+        return None
 
     # Проверка на админа
     if payload.get("role") == "admin":
@@ -83,10 +99,7 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     username = payload.get("sub")
 
     if user_id is None:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Invalid token payload"
-        )
+        return None
 
     return {
         "id": user_id,
@@ -95,7 +108,20 @@ async def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(s
     }
 
 
-async def get_current_admin(current_user: Dict[str, Any] = Depends(get_current_user)) -> Dict[str, Any]:
+async def get_current_user_required(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> Dict[
+    str, Any]:
+    """Получение текущего пользователя (требует авторизацию)"""
+    user = await get_current_user(credentials)
+    if user is None:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return user
+
+
+async def get_current_admin(current_user: Dict[str, Any] = Depends(get_current_user_required)) -> Dict[str, Any]:
     """Проверка что текущий пользователь - админ"""
     if current_user["role"] != "admin":
         raise HTTPException(
@@ -107,10 +133,5 @@ async def get_current_admin(current_user: Dict[str, Any] = Depends(get_current_u
 
 async def get_current_user_optional(credentials: Optional[HTTPAuthorizationCredentials] = Depends(security)) -> \
 Optional[Dict[str, Any]]:
-    """Опциональная авторизация (для гостей)"""
-    try:
-        if credentials:
-            return await get_current_user(credentials)
-    except HTTPException:
-        pass
-    return None
+    """Опциональная авторизация (для гостей) - алиас для get_current_user"""
+    return await get_current_user(credentials)

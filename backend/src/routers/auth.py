@@ -18,13 +18,22 @@ router = APIRouter(prefix="/api/auth", tags=["auth"])
 @router.post("/register", response_model=TokenResponse)
 async def register(user_data: UserRegister):
     """Регистрация нового пользователя"""
+
+    # Валидация пароля
     if len(user_data.password) < 6:
         raise HTTPException(
             status_code=status.HTTP_400_BAD_REQUEST,
             detail="Password must be at least 6 characters long"
         )
 
+    if len(user_data.password) > 100:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Password must be less than 100 characters"
+        )
+
     async with db_pool.get_connection() as cursor:
+        # Проверка существования пользователя
         await cursor.execute(
             "SELECT id FROM users WHERE email = %s OR username = %s",
             (user_data.email, user_data.username)
@@ -35,8 +44,10 @@ async def register(user_data: UserRegister):
                 detail="User with this email or username already exists"
             )
 
+        # Хеширование пароля
         hashed_password = get_password_hash(user_data.password)
 
+        # Создание пользователя
         await cursor.execute(
             """INSERT INTO users (username, email, password_hash, contact) 
                VALUES (%s, %s, %s, %s)""",
@@ -44,6 +55,7 @@ async def register(user_data: UserRegister):
         )
         user_id = cursor.lastrowid
 
+        # Создание токенов
         access_token = create_access_token(
             {"sub": user_data.username, "role": "user", "user_id": user_id}
         )
@@ -51,6 +63,7 @@ async def register(user_data: UserRegister):
             {"sub": user_data.username, "role": "user", "user_id": user_id}
         )
 
+        # Сохранение refresh токена
         expires_at = datetime.now(timezone.utc) + timedelta(days=7)
         await cursor.execute(
             "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (%s, %s, %s)",
@@ -64,9 +77,10 @@ async def register(user_data: UserRegister):
         )
 
 
+# Остальные функции остаются без изменений...
 @router.post("/login", response_model=TokenResponse)
 async def login(user_data: UserLogin):
-    """Вход пользователя"""
+    """Вход пользователя (email + пароль)"""
     async with db_pool.get_connection() as cursor:
         await cursor.execute(
             "SELECT id, username, password_hash FROM users WHERE email = %s",
@@ -80,6 +94,7 @@ async def login(user_data: UserLogin):
                 detail="Invalid email or password"
             )
 
+        # Создание токенов
         access_token = create_access_token(
             {"sub": user["username"], "role": "user", "user_id": user["id"]}
         )
@@ -87,6 +102,7 @@ async def login(user_data: UserLogin):
             {"sub": user["username"], "role": "user", "user_id": user["id"]}
         )
 
+        # Сохранение refresh токена
         expires_at = datetime.now(timezone.utc) + timedelta(days=7)
         await cursor.execute(
             "INSERT INTO refresh_tokens (user_id, token, expires_at) VALUES (%s, %s, %s)",
@@ -102,13 +118,14 @@ async def login(user_data: UserLogin):
 
 @router.post("/admin/login", response_model=TokenResponse)
 async def admin_login(admin_data: AdminLogin):
-    """Вход администратора"""
+    """Вход администратора по мастер-ключу"""
     if admin_data.master_key != MASTER_KEY:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Invalid master key"
         )
 
+    # Админ не хранится в БД
     access_token = create_access_token(
         {"sub": "admin", "role": "admin"}
     )
@@ -125,7 +142,7 @@ async def admin_login(admin_data: AdminLogin):
 
 @router.post("/logout")
 async def logout(refresh_data: RefreshToken):
-    """Выход"""
+    """Выход - удаление refresh токена"""
     async with db_pool.get_connection() as cursor:
         await cursor.execute(
             "DELETE FROM refresh_tokens WHERE token = %s",
@@ -136,10 +153,13 @@ async def logout(refresh_data: RefreshToken):
 
 @router.post("/refresh", response_model=TokenResponse)
 async def refresh_token(refresh_data: RefreshToken):
-    """Обновление токена"""
+    """Обновление access токена"""
     payload = decode_token(refresh_data.refresh_token)
     if not payload:
-        raise HTTPException(status_code=401, detail="Invalid refresh token")
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid refresh token"
+        )
 
     async with db_pool.get_connection() as cursor:
         await cursor.execute(
@@ -147,8 +167,12 @@ async def refresh_token(refresh_data: RefreshToken):
             (refresh_data.refresh_token,)
         )
         if not await cursor.fetchone():
-            raise HTTPException(status_code=401, detail="Refresh token expired or invalid")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Refresh token expired or invalid"
+            )
 
+        # Создание нового access токена
         new_access_token = create_access_token(
             {
                 "sub": payload["sub"],
@@ -173,6 +197,7 @@ async def get_current_user_info(current_user=Depends(get_current_user_optional))
     if current_user["role"] == "admin":
         return {"role": "admin", "username": "admin"}
 
+    # Загружаем полную информацию о пользователе из БД
     async with db_pool.get_connection() as cursor:
         await cursor.execute(
             "SELECT id, username, email, contact, role, created_at FROM users WHERE id = %s",
