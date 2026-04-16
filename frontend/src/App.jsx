@@ -6,6 +6,9 @@ import LoginPage from './components/LoginPage';
 import RegisterPage from './components/RegisterPage';
 import ExchangePage from './components/ExchangePage';
 import ProjectDetailPage from './components/ProjectDetailPage';
+import AdminProjectsPage from './components/AdminProjectsPage';
+import EditProjectPage from './components/EditProjectPage';
+import ApplicationsPage from './components/ApplicationsPage';
 import './App.css';
 
 function App() {
@@ -19,6 +22,10 @@ function App() {
         <Route path="/register" element={<RegisterPage />} />
         <Route path="/exchange" element={<ExchangePage />} />
         <Route path="/exchange/:projectId" element={<ProjectDetailPage />} />
+        <Route path="/admin/projects" element={<AdminProjectsPage />} />
+        <Route path="/admin/projects/new" element={<EditProjectPage />} />
+        <Route path="/admin/projects/:projectId/edit" element={<EditProjectPage />} />
+        <Route path="/admin/projects/:projectId/applications" element={<ApplicationsPage />} />
       </Routes>
     </BrowserRouter>
   );

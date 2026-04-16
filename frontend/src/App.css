@@ -1342,3 +1342,175 @@ body {
     print-color-adjust: exact;
   }
 }
+
+/* Баннер с названием проекта */
+.project-name-banner {
+  background: linear-gradient(135deg, var(--primary-color) 0%, var(--primary-dark) 100%);
+  color: white;
+  padding: 12px 20px;
+  border-radius: 12px;
+  margin-bottom: 20px;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  box-shadow: var(--shadow-sm);
+}
+
+.banner-icon {
+  font-size: 20px;
+}
+
+.banner-text {
+  flex: 1;
+  font-size: 16px;
+  font-weight: 500;
+}
+
+.banner-action {
+  padding: 6px 14px;
+  background: rgba(255, 255, 255, 0.2);
+  color: white;
+  border: 1px solid rgba(255, 255, 255, 0.3);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.banner-action:hover {
+  background: rgba(255, 255, 255, 0.3);
+  border-color: rgba(255, 255, 255, 0.5);
+}
+
+/* Модальное окно экспорта */
+.export-modal {
+  max-width: 550px;
+  width: 90%;
+}
+
+.export-modal .modal-body {
+  max-height: 60vh;
+  overflow-y: auto;
+}
+
+.export-modal .form-group {
+  margin-bottom: 20px;
+}
+
+.export-modal .form-group label {
+  display: block;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.export-modal .form-group input,
+.export-modal .form-group textarea {
+  width: 100%;
+  padding: 12px 14px;
+  border: 1px solid var(--border-color);
+  border-radius: 10px;
+  font-size: 14px;
+  font-family: inherit;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  transition: border-color 0.2s;
+  resize: vertical;
+}
+
+.export-modal .form-group input:focus,
+.export-modal .form-group textarea:focus {
+  outline: none;
+  border-color: var(--primary-color);
+}
+
+.export-modal .form-group input:disabled,
+.export-modal .form-group textarea:disabled {
+  background: var(--bg-secondary);
+  cursor: not-allowed;
+  opacity: 0.7;
+}
+
+.export-modal .form-hint {
+  font-size: 12px;
+  color: var(--text-secondary);
+  margin-top: 6px;
+}
+
+.file-info-note {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 14px 16px;
+  background: var(--bg-secondary);
+  border-radius: 10px;
+  margin-top: 8px;
+  color: var(--text-primary);
+  font-size: 14px;
+}
+
+.note-icon {
+  font-size: 20px;
+}
+
+/* Успешный экспорт */
+.export-success {
+  text-align: center;
+  padding: 20px;
+}
+
+.export-success .success-icon {
+  font-size: 56px;
+  margin-bottom: 16px;
+}
+
+.export-success h3 {
+  font-size: 20px;
+  color: var(--text-primary);
+  margin-bottom: 8px;
+}
+
+.export-success p {
+  color: var(--text-secondary);
+  margin-bottom: 20px;
+}
+
+.export-success .btn-view-exchange {
+  padding: 12px 24px;
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s;
+}
+
+.export-success .btn-view-exchange:hover {
+  background: var(--primary-dark);
+  transform: translateY(-2px);
+  box-shadow: var(--shadow-md);
+}
+
+/* Адаптивность */
+@media (max-width: 768px) {
+  .project-name-banner {
+    flex-wrap: wrap;
+  }
+
+  .banner-action {
+    width: 100%;
+    justify-content: center;
+  }
+
+  .export-modal {
+    width: 95%;
+    margin: 10px;
+  }
+}
