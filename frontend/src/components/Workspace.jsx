@@ -132,13 +132,41 @@ const Tab = ({ id, label, icon, isActive, onClick }) => {
 };
 
 // Модальное окно для выгрузки на биржу
-const ExportToExchangeModal = ({ isOpen, onClose, onExport, isLoading, exportSuccess, exportedProjectId, onViewProject }) => {
+const ExportToExchangeModal = ({
+  isOpen,
+  onClose,
+  onExport,
+  isLoading,
+  exportSuccess,
+  exportedProjectId,
+  onViewProject,
+  isUpdate = false,
+  existingData = null
+}) => {
   const [formData, setFormData] = useState({
     name: '',
     description: '',
     hard_skills: '',
     soft_skills: ''
   });
+
+  useEffect(() => {
+    if (isOpen && existingData) {
+      setFormData({
+        name: existingData.name || '',
+        description: existingData.description || '',
+        hard_skills: existingData.hard_skills || '',
+        soft_skills: existingData.soft_skills || ''
+      });
+    } else if (isOpen && !existingData) {
+      setFormData({
+        name: '',
+        description: '',
+        hard_skills: '',
+        soft_skills: ''
+      });
+    }
+  }, [isOpen, existingData]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -159,7 +187,7 @@ const ExportToExchangeModal = ({ isOpen, onClose, onExport, isLoading, exportSuc
     <div className="modal-overlay" onClick={onClose}>
       <div className="modal-content export-modal" onClick={(e) => e.stopPropagation()}>
         <div className="modal-header">
-          <h2>📤 Выгрузить на биржу</h2>
+          <h2>{isUpdate ? '🔄 Обновить на бирже' : '📤 Выгрузить на биржу'}</h2>
           <button className="modal-close" onClick={onClose}>✕</button>
         </div>
 
@@ -167,8 +195,8 @@ const ExportToExchangeModal = ({ isOpen, onClose, onExport, isLoading, exportSuc
           <div className="modal-body">
             <div className="export-success">
               <div className="success-icon">✅</div>
-              <h3>Проект успешно выгружен!</h3>
-              <p>Проект опубликован на бирже и доступен для просмотра.</p>
+              <h3>{isUpdate ? 'Проект успешно обновлен!' : 'Проект успешно выгружен!'}</h3>
+              <p>Проект {isUpdate ? 'обновлен' : 'опубликован'} на бирже и доступен для просмотра.</p>
               <button
                 className="btn-view-exchange"
                 onClick={onViewProject}
@@ -237,8 +265,12 @@ const ExportToExchangeModal = ({ isOpen, onClose, onExport, isLoading, exportSuc
               </div>
 
               <div className="file-info-note">
-                <span className="note-icon">📎</span>
-                <span>Текущий проект будет автоматически прикреплен как .aipm файл</span>
+                <span className="note-icon">{isUpdate ? '🔄' : '📎'}</span>
+                <span>
+                  {isUpdate
+                    ? 'Текущий проект обновит существующий .aipm файл на бирже'
+                    : 'Текущий проект будет автоматически прикреплен как .aipm файл'}
+                </span>
               </div>
             </div>
 
@@ -259,12 +291,12 @@ const ExportToExchangeModal = ({ isOpen, onClose, onExport, isLoading, exportSuc
                 {isLoading ? (
                   <>
                     <span className="spinner-small"></span>
-                    Выгрузка...
+                    {isUpdate ? 'Обновление...' : 'Выгрузка...'}
                   </>
                 ) : (
                   <>
-                    <span>📤</span>
-                    Выгрузить
+                    <span>{isUpdate ? '🔄' : '📤'}</span>
+                    {isUpdate ? 'Обновить' : 'Выгрузить'}
                   </>
                 )}
               </button>
@@ -295,6 +327,7 @@ const Workspace = () => {
   const [userRole, setUserRole] = useState(null);
   const [currentProjectId, setCurrentProjectId] = useState(projectId || null);
   const [projectName, setProjectName] = useState('');
+  const [exchangeProjectData, setExchangeProjectData] = useState(null);
 
   // Состояния для модального окна
   const [showExportModal, setShowExportModal] = useState(false);
@@ -307,17 +340,14 @@ const Workspace = () => {
   const fileInputRef = useRef(null);
   const projectFileInputRef = useRef(null);
 
-  // Проверка роли при загрузке
   useEffect(() => {
     checkUserRole();
   }, []);
 
-  // Прокрутка к последнему сообщению
   useEffect(() => {
     scrollToBottom();
   }, [messages]);
 
-  // Загрузка проекта с биржи при наличии projectId в URL
   useEffect(() => {
     const loadFromExchange = sessionStorage.getItem('loadFromExchange');
     if (loadFromExchange) {
@@ -328,7 +358,6 @@ const Workspace = () => {
     }
   }, [projectId]);
 
-  // Импорт из sessionStorage
   useEffect(() => {
     const importContent = sessionStorage.getItem('importFileContent');
     const importProjectContent = sessionStorage.getItem('importProjectContent');
@@ -383,6 +412,27 @@ const Workspace = () => {
 
       console.log(`Загрузка проекта ${id} с биржи...`);
 
+      // Загружаем метаданные проекта
+      const projectResponse = await fetch(`http://localhost:8000/api/projects/${id}`, {
+        headers: {
+          'Authorization': `Bearer ${token}`
+        }
+      });
+
+      if (projectResponse.ok) {
+        const projectMeta = await projectResponse.json();
+        setExchangeProjectData({
+          id: projectMeta.id,
+          name: projectMeta.name,
+          description: projectMeta.description,
+          hard_skills: projectMeta.hard_skills || '',
+          soft_skills: projectMeta.soft_skills || '',
+          status: projectMeta.status
+        });
+        setProjectName(projectMeta.name);
+      }
+
+      // Загружаем файл проекта
       const response = await fetch(`http://localhost:8000/api/workspace/load-from-exchange/${id}`, {
         headers: {
           'Authorization': `Bearer ${token}`
@@ -393,14 +443,12 @@ const Workspace = () => {
         const data = await response.json();
 
         try {
-          // Декодируем base64 с поддержкой UTF-8
           const jsonStr = base64ToUtf8(data.content);
           const projectData = JSON.parse(jsonStr);
 
           if (projectData.messages) setMessages(projectData.messages);
           if (projectData.chatHistory) setProjectContext({ chatHistory: projectData.chatHistory });
           if (projectData.reports) setReports(projectData.reports);
-          if (projectData.name) setProjectName(projectData.name);
 
           setCurrentProjectId(id);
           setIsNewProject(false);
@@ -493,6 +541,15 @@ const Workspace = () => {
       fullMessage = attachedFile.content;
     }
 
+    // 1. Формируем актуальную историю ЛОКАЛЬНО до обновления стейта React
+    const currentMessageForHistory = {
+      role: 'user',
+      content: fullMessage, // На бэкенд шлем полный текст (с контентом файла)
+      timestamp: new Date().toISOString()
+    };
+    const updatedChatHistory = [...projectContext.chatHistory, currentMessageForHistory];
+
+    // 2. Обновляем UI (стейт обновится асинхронно)
     addMessage(displayMessage, true);
     setInputValue('');
     setAttachedFile(null);
@@ -506,7 +563,8 @@ const Workspace = () => {
         },
         body: JSON.stringify({
           project_description: getProjectDescription() || fullMessage,
-          chat_history: formatChatHistoryForBackend(projectContext.chatHistory),
+          // 3. ПЕРЕДАЕМ ОБНОВЛЕННУЮ ИСТОРИЮ НА БЭКЕНД
+          chat_history: formatChatHistoryForBackend(updatedChatHistory),
           command: 'ask'
         }),
       });
@@ -593,46 +651,116 @@ const Workspace = () => {
         reports: reports
       };
 
-      // Кодируем в base64 с поддержкой UTF-8
       const jsonStr = JSON.stringify(projectData);
       const aipmContent = utf8ToBase64(jsonStr);
 
-      console.log('Отправка запроса на экспорт...');
+      // Если проект уже существует на бирже - обновляем его
+      if (currentProjectId) {
+        console.log(`Обновление существующего проекта ${currentProjectId}...`);
 
-      const response = await fetch('http://localhost:8000/api/workspace/export-to-exchange', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({
-          name: formData.name,
-          description: formData.description,
-          hard_skills: formData.hard_skills || '',
-          soft_skills: formData.soft_skills || '',
-          aipm_content: aipmContent
-        })
-      });
+        // Обновляем данные проекта
+        const updateResponse = await fetch(`http://localhost:8000/api/projects/${currentProjectId}`, {
+          method: 'PUT',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            description: formData.description,
+            hard_skills: formData.hard_skills || '',
+            soft_skills: formData.soft_skills || ''
+          })
+        });
 
-      if (response.ok) {
-        const data = await response.json();
-        setExportSuccess(true);
-        setExportedProjectId(data.project_id);
-        setProjectName(formData.name);
-        setCurrentProjectId(data.project_id);
-
-        addMessage(`✅ Проект "${formData.name}" успешно выгружен на биржу!`, false);
-      } else {
-        const errorText = await response.text();
-        console.error('Ошибка ответа сервера:', response.status, errorText);
-
-        try {
-          const error = JSON.parse(errorText);
-          addMessage(`❌ Ошибка при выгрузке: ${error.detail || 'Неизвестная ошибка'}`, false);
-        } catch {
-          addMessage(`❌ Ошибка сервера (${response.status})`, false);
+        if (!updateResponse.ok) {
+          const errorText = await updateResponse.text();
+          console.error('Ошибка обновления проекта:', updateResponse.status, errorText);
+          addMessage(`❌ Ошибка при обновлении проекта (${updateResponse.status})`, false);
+          setShowExportModal(false);
+          setIsExporting(false);
+          return;
         }
-        setShowExportModal(false);
+
+        // Загружаем новый файл
+        const formDataFile = new FormData();
+        const blob = new Blob([JSON.stringify(projectData, null, 2)], { type: 'application/json;charset=utf-8' });
+        formDataFile.append('file', blob, 'project.aipm');
+
+        const uploadResponse = await fetch(`http://localhost:8000/api/projects/${currentProjectId}/upload-file`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`
+          },
+          body: formDataFile
+        });
+
+        if (uploadResponse.ok) {
+          setExportSuccess(true);
+          setExportedProjectId(currentProjectId);
+          setProjectName(formData.name);
+          setExchangeProjectData({
+            ...exchangeProjectData,
+            name: formData.name,
+            description: formData.description,
+            hard_skills: formData.hard_skills || '',
+            soft_skills: formData.soft_skills || ''
+          });
+
+          addMessage(`✅ Проект "${formData.name}" успешно обновлен на бирже!`, false);
+        } else {
+          const errorText = await uploadResponse.text();
+          console.error('Ошибка загрузки файла:', uploadResponse.status, errorText);
+          addMessage(`❌ Проект обновлен, но не удалось загрузить файл (${uploadResponse.status})`, false);
+          setShowExportModal(false);
+        }
+      } else {
+        // Создание нового проекта
+        console.log('Создание нового проекта...');
+
+        const response = await fetch('http://localhost:8000/api/workspace/export-to-exchange', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${token}`
+          },
+          body: JSON.stringify({
+            name: formData.name,
+            description: formData.description,
+            hard_skills: formData.hard_skills || '',
+            soft_skills: formData.soft_skills || '',
+            aipm_content: aipmContent
+          })
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          setExportSuccess(true);
+          setExportedProjectId(data.project_id);
+          setProjectName(formData.name);
+          setCurrentProjectId(data.project_id);
+          setExchangeProjectData({
+            id: data.project_id,
+            name: formData.name,
+            description: formData.description,
+            hard_skills: formData.hard_skills || '',
+            soft_skills: formData.soft_skills || '',
+            status: 'published'
+          });
+
+          addMessage(`✅ Проект "${formData.name}" успешно выгружен на биржу!`, false);
+        } else {
+          const errorText = await response.text();
+          console.error('Ошибка ответа сервера:', response.status, errorText);
+
+          try {
+            const error = JSON.parse(errorText);
+            addMessage(`❌ Ошибка при выгрузке: ${error.detail || 'Неизвестная ошибка'}`, false);
+          } catch {
+            addMessage(`❌ Ошибка сервера (${response.status})`, false);
+          }
+          setShowExportModal(false);
+        }
       }
     } catch (error) {
       console.error('Export error:', error);
@@ -653,6 +781,8 @@ const Workspace = () => {
     setExportSuccess(false);
     if (exportedProjectId) {
       navigate(`/exchange/${exportedProjectId}`);
+    } else if (currentProjectId) {
+      navigate(`/exchange/${currentProjectId}`);
     }
   };
 
@@ -769,6 +899,10 @@ const Workspace = () => {
 
         setActiveTab('chat');
         addMessage(`📂 Проект загружен: ${file.name}`, false);
+
+        // Сбрасываем связь с биржей при импорте локального файла
+        setCurrentProjectId(null);
+        setExchangeProjectData(null);
       } catch (error) {
         console.error('Error importing project:', error);
         alert('Ошибка при импорте проекта. Неверный формат файла.');
@@ -799,6 +933,7 @@ const Workspace = () => {
     setIsNewProject(true);
     setCurrentProjectId(null);
     setProjectName('');
+    setExchangeProjectData(null);
 
     const timestamp = new Date().toLocaleTimeString('ru-RU', {
       hour: '2-digit',
@@ -833,8 +968,6 @@ const Workspace = () => {
   const handleViewOnExchange = () => {
     if (currentProjectId) {
       navigate(`/exchange/${currentProjectId}`);
-    } else if (exportedProjectId) {
-      navigate(`/exchange/${exportedProjectId}`);
     }
   };
 
@@ -908,7 +1041,7 @@ const Workspace = () => {
                 onClick={handleExportToExchange}
                 title={!sidebarOpen ? "Выгрузить на биржу" : "Выгрузить на биржу"}
               >
-                {sidebarOpen ? '📤 Выгрузить на биржу' : '📤'}
+                {sidebarOpen ? (currentProjectId ? '🔄 Обновить на бирже' : '📤 Выгрузить на биржу') : (currentProjectId ? '🔄' : '📤')}
               </button>
               <button
                 className="action-btn"
@@ -1001,15 +1134,31 @@ const Workspace = () => {
                 {projectName && (
                   <div className="project-name-banner">
                     <span className="banner-icon">📁</span>
-                    <span className="banner-text">Проект: {projectName}</span>
+                    <span className="banner-text">
+                      Проект: {projectName}
+                      {currentProjectId && (
+                        <span className="exchange-linked-badge" title="Связан с биржей">
+                          🔗 ID: {currentProjectId}
+                        </span>
+                      )}
+                    </span>
                     {currentProjectId && (
-                      <button
-                        className="banner-action"
-                        onClick={handleViewOnExchange}
-                        title="Посмотреть на бирже"
-                      >
-                        👁️ На бирже
-                      </button>
+                      <>
+                        <button
+                          className="banner-action"
+                          onClick={handleViewOnExchange}
+                          title="Посмотреть на бирже"
+                        >
+                          👁️ На бирже
+                        </button>
+                        <button
+                          className="banner-action"
+                          onClick={() => setShowExportModal(true)}
+                          title="Обновить на бирже"
+                        >
+                          🔄 Обновить
+                        </button>
+                      </>
                     )}
                   </div>
                 )}
@@ -1257,6 +1406,8 @@ const Workspace = () => {
         exportSuccess={exportSuccess}
         exportedProjectId={exportedProjectId}
         onViewProject={handleViewExportedProject}
+        isUpdate={!!currentProjectId}
+        existingData={exchangeProjectData}
       />
     </div>
   );
