@@ -1,0 +1,292 @@
+/* Обновленные стили для WelcomeScreen */
+
+.welcome-title-section {
+  text-align: center;
+  margin-bottom: 40px;
+}
+
+.title-icon-wrapper {
+  margin-bottom: 20px;
+}
+
+.title-icon-main {
+  font-size: 64px;
+  display: inline-block;
+  animation: float 3s ease-in-out infinite;
+}
+
+@keyframes float {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+/* Hero секция с действиями */
+.welcome-hero-actions {
+  display: flex;
+  align-items: stretch;
+  justify-content: center;
+  gap: 32px;
+  margin-bottom: 32px;
+  flex-wrap: wrap;
+}
+
+.hero-card {
+  flex: 1;
+  min-width: 280px;
+  max-width: 360px;
+  background: var(--bg-primary);
+  border-radius: 20px;
+  padding: 32px 24px;
+  text-align: center;
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border-color);
+  transition: transform 0.3s, box-shadow 0.3s;
+}
+
+.hero-card:hover {
+  transform: translateY(-4px);
+  box-shadow: 0 12px 24px rgba(0, 0, 0, 0.15);
+}
+
+.hero-card.guest {
+  background: linear-gradient(135deg, var(--bg-secondary) 0%, var(--bg-primary) 100%);
+}
+
+.hero-icon {
+  font-size: 48px;
+  margin-bottom: 20px;
+}
+
+.hero-card h2 {
+  font-size: 22px;
+  font-weight: 600;
+  color: var(--text-primary);
+  margin-bottom: 12px;
+}
+
+.hero-card p {
+  color: var(--text-secondary);
+  font-size: 14px;
+  line-height: 1.5;
+  margin-bottom: 24px;
+}
+
+.hero-buttons {
+  display: flex;
+  gap: 12px;
+  justify-content: center;
+}
+
+.hero-btn {
+  flex: 1;
+  padding: 14px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.2s;
+  border: none;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+}
+
+.hero-btn.primary {
+  background: var(--primary-color);
+  color: white;
+}
+
+.hero-btn.primary:hover {
+  background: var(--primary-dark);
+  transform: scale(1.02);
+}
+
+.hero-btn.secondary {
+  background: transparent;
+  color: var(--primary-color);
+  border: 1px solid var(--primary-color);
+}
+
+.hero-btn.secondary:hover {
+  background: rgba(16, 163, 127, 0.05);
+}
+
+.hero-btn.guest-btn {
+  width: 100%;
+  background: var(--bg-primary);
+  color: var(--text-primary);
+  border: 1px solid var(--border-color);
+}
+
+.hero-btn.guest-btn:hover {
+  background: var(--bg-secondary);
+  border-color: var(--primary-color);
+}
+
+.btn-icon {
+  font-size: 18px;
+}
+
+.hero-divider {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+  font-weight: 500;
+  text-transform: uppercase;
+  letter-spacing: 1px;
+}
+
+.hero-divider span {
+  background: var(--bg-primary);
+  padding: 8px 16px;
+  border-radius: 20px;
+  border: 1px solid var(--border-color);
+}
+
+/* Быстрый переход на биржу */
+.quick-exchange-link {
+  text-align: center;
+  margin-bottom: 48px;
+}
+
+.exchange-link-btn {
+  background: transparent;
+  border: 1px dashed var(--border-color);
+  padding: 16px 32px;
+  border-radius: 40px;
+  font-size: 16px;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: all 0.2s;
+  display: inline-flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.exchange-link-btn:hover {
+  border-color: var(--primary-color);
+  color: var(--primary-color);
+  background: rgba(16, 163, 127, 0.03);
+}
+
+.link-icon {
+  font-size: 20px;
+}
+
+.arrow {
+  font-size: 18px;
+  transition: transform 0.2s;
+}
+
+.exchange-link-btn:hover .arrow {
+  transform: translateX(4px);
+}
+
+/* Заголовки секций */
+.section-title {
+  font-size: 24px;
+  font-weight: 600;
+  color: var(--text-primary);
+  text-align: center;
+  margin-bottom: 32px;
+  position: relative;
+}
+
+.section-title::after {
+  content: '';
+  display: block;
+  width: 60px;
+  height: 3px;
+  background: var(--primary-color);
+  margin: 16px auto 0;
+  border-radius: 2px;
+}
+
+.features-section {
+  margin-bottom: 48px;
+}
+
+/* Обновленный футер */
+.welcome-footer {
+  text-align: center;
+  color: var(--text-secondary);
+  font-size: 14px;
+  padding-top: 32px;
+  border-top: 1px solid var(--border-color);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  flex-wrap: wrap;
+}
+
+.footer-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 4px 12px;
+  background: var(--bg-secondary);
+  border-radius: 20px;
+  font-size: 13px;
+}
+
+.footer-separator {
+  color: var(--border-color);
+  font-weight: bold;
+}
+
+/* Адаптивность для hero секции */
+@media (max-width: 768px) {
+  .welcome-hero-actions {
+    flex-direction: column;
+    align-items: center;
+  }
+
+  .hero-card {
+    max-width: 100%;
+  }
+
+  .hero-divider {
+    padding: 16px 0;
+  }
+
+  .hero-buttons {
+    flex-direction: column;
+  }
+
+  .exchange-link-btn {
+    padding: 12px 24px;
+    font-size: 14px;
+  }
+
+  .title-icon-main {
+    font-size: 48px;
+  }
+}
+
+/* Анимация появления */
+.hero-card {
+  animation: slideInUp 0.6s ease-out;
+}
+
+@keyframes slideInUp {
+  from {
+    opacity: 0;
+    transform: translateY(30px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.hero-card:nth-child(1) {
+  animation-delay: 0.1s;
+}
+
+.hero-card:nth-child(3) {
+  animation-delay: 0.2s;
+}

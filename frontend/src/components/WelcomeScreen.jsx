@@ -1,114 +1,131 @@
-import React, { useRef } from 'react';
+import React from 'react';
+import './WelcomeScreen.css';
 import { useNavigate } from 'react-router-dom';
 
-const WelcomeScreen = ({ onStartNew, onOpenProject, onFileUpload }) => {
-  const fileInputRef = useRef(null);
-  const projectFileInputRef = useRef(null);
+const WelcomeScreen = () => {
   const navigate = useNavigate();
 
-  const handleStartNew = () => {
-    navigate('/workspace');
+  const handleLogin = () => {
+    navigate('/login');
   };
 
-  const handleOpenProject = () => {
-    projectFileInputRef.current?.click();
+  const handleRegister = () => {
+    navigate('/register');
   };
 
-  const handleFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      // Передаем файл через sessionStorage для загрузки в workspace
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        sessionStorage.setItem('importFileContent', e.target.result);
-        sessionStorage.setItem('importFileName', file.name);
-        navigate('/workspace');
-      };
-      reader.readAsText(file);
-    }
-    event.target.value = '';
+  const handleGuestAccess = () => {
+    localStorage.removeItem('access_token');
+    localStorage.removeItem('refresh_token');
+    localStorage.setItem('user_role', 'guest');
+    navigate('/exchange');
   };
 
-  const handleProjectFileUpload = (event) => {
-    const file = event.target.files[0];
-    if (file) {
-      const reader = new FileReader();
-      reader.onload = (e) => {
-        sessionStorage.setItem('importProjectContent', e.target.result);
-        sessionStorage.setItem('importProjectName', file.name);
-        navigate('/workspace');
-      };
-      reader.readAsText(file);
-    }
-    event.target.value = '';
+  const handleGoToExchange = () => {
+    navigate('/exchange');
   };
 
   return (
     <div className="welcome-screen">
-      <input
-        type="file"
-        ref={fileInputRef}
-        onChange={handleFileUpload}
-        accept=".md,.markdown"
-        style={{ display: 'none' }}
-      />
-      <input
-        type="file"
-        ref={projectFileInputRef}
-        onChange={handleProjectFileUpload}
-        accept=".aipm,.json"
-        style={{ display: 'none' }}
-      />
-
       <div className="welcome-content">
-        <h1 className="welcome-title">
-          AI Project Manager Assistant
-        </h1>
+        <div className="welcome-title-section">
+          <div className="title-icon-wrapper">
+            <span className="title-icon-main">🚀</span>
+          </div>
+          <h1 className="welcome-title">
+            AI Project Manager Assistant
+          </h1>
+          <p className="welcome-subtitle">
+            Мультиагентная система для анализа и планирования IT-проектов
+          </p>
+        </div>
 
-        <p className="welcome-subtitle">
-          Мультиагентная система для анализа и планирования IT-проектов
-        </p>
-
-        <div className="features-grid">
-          <div className="feature-card">
-            <div className="feature-icon">🔍</div>
-            <h3>Скоринг проекта</h3>
-            <p>AI-агент анализирует идею, задает уточняющие вопросы и помогает определить жизнеспособность проекта</p>
+        {/* Секция с действиями - основной фокус */}
+        <div className="welcome-hero-actions">
+          <div className="hero-card">
+            <div className="hero-icon">👤</div>
+            <h2>Войдите в систему</h2>
+            <p>Получите доступ ко всем возможностям платформы</p>
+            <div className="hero-buttons">
+              <button className="hero-btn primary" onClick={handleLogin}>
+                <span className="btn-icon">🔐</span>
+                Войти
+              </button>
+              <button className="hero-btn secondary" onClick={handleRegister}>
+                <span className="btn-icon">📝</span>
+                Регистрация
+              </button>
+            </div>
           </div>
 
-          <div className="feature-card">
-            <div className="feature-icon">🧠</div>
-            <h3>Мультиагентный анализ</h3>
-            <p>Три независимых агента (Оптимист, Критик, Фактолог) исследуют проект с разных точек зрения</p>
+          <div className="hero-divider">
+            <span>или</span>
           </div>
 
-          <div className="feature-card">
-            <div className="feature-icon">📊</div>
-            <h3>Исследование рынка</h3>
-            <p>Автоматический поиск конкурентов, анализ рисков и формирование гипотез для MVP</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">🛠</div>
-            <h3>Технический план</h3>
-            <p>Создание детального плана реализации, подбор технологического стека и инфраструктуры</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">👥</div>
-            <h3>Формирование команды</h3>
-            <p>Генерация описаний вакансий и оценка необходимых ресурсов для реализации проекта</p>
-          </div>
-
-          <div className="feature-card">
-            <div className="feature-icon">☁️</div>
-            <h3>Сохранение в облаке</h3>
-            <p>Автоматическая выгрузка всех отчетов на Яндекс.Диск с удобной структурой хранения</p>
+          <div className="hero-card guest">
+            <div className="hero-icon">👁️</div>
+            <h2>Гостевой режим</h2>
+            <p>Просматривайте биржу проектов без регистрации</p>
+            <button className="hero-btn guest-btn" onClick={handleGuestAccess}>
+              <span className="btn-icon">🚪</span>
+              Продолжить как гость
+            </button>
           </div>
         </div>
 
+        {/* Быстрый переход на биржу */}
+        <div className="quick-exchange-link">
+          <button className="exchange-link-btn" onClick={handleGoToExchange}>
+            <span className="link-icon">🏪</span>
+            Перейти к бирже проектов
+            <span className="arrow">→</span>
+          </button>
+        </div>
+
+        {/* Сетка возможностей */}
+        <div className="features-section">
+          <h3 className="section-title">Возможности платформы</h3>
+          <div className="features-grid">
+            <div className="feature-card">
+              <div className="feature-icon">🔍</div>
+              <h3>Скоринг проекта</h3>
+              <p>AI-агент анализирует идею, задает уточняющие вопросы и помогает определить жизнеспособность проекта</p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">🧠</div>
+              <h3>Мультиагентный анализ</h3>
+              <p>Три независимых агента (Оптимист, Критик, Фактолог) исследуют проект с разных точек зрения</p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">📊</div>
+              <h3>Исследование рынка</h3>
+              <p>Автоматический поиск конкурентов, анализ рисков и формирование гипотез для MVP</p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">🛠</div>
+              <h3>Технический план</h3>
+              <p>Создание детального плана реализации, подбор технологического стека и инфраструктуры</p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">👥</div>
+              <h3>Формирование команды</h3>
+              <p>Генерация описаний вакансий и оценка необходимых ресурсов для реализации проекта</p>
+            </div>
+
+            <div className="feature-card">
+              <div className="feature-icon">🏪</div>
+              <h3>Биржа проектов</h3>
+              <p>Публикация проектов, поиск участников и отклики на интересные предложения</p>
+            </div>
+          </div>
+        </div>
+
+        {/* Секция агентов */}
         <div className="agents-section">
-          <h2>Команда AI-агентов</h2>
+          <h3 className="section-title">Команда AI-агентов</h3>
           <div className="agents-list">
             <div className="agent-item">
               <span className="agent-emoji">🎯</span>
@@ -148,20 +165,13 @@ const WelcomeScreen = ({ onStartNew, onOpenProject, onFileUpload }) => {
           </div>
         </div>
 
-        <div className="welcome-actions">
-          <button className="welcome-btn primary" onClick={handleStartNew}>
-            🚀 Начать новый проект
-          </button>
-          <button className="welcome-btn secondary" onClick={handleOpenProject}>
-            📂 Открыть проект
-          </button>
-          <button className="welcome-btn secondary" onClick={() => fileInputRef.current?.click()}>
-            📄 Загрузить из .md
-          </button>
-        </div>
-
+        {/* Футер */}
         <p className="welcome-footer">
-          Система использует YandexGPT для анализа и генерации контента
+          <span className="footer-badge">🤖 YandexGPT</span>
+          <span className="footer-separator">•</span>
+          <span className="footer-badge">⚡ FastAPI</span>
+          <span className="footer-separator">•</span>
+          <span className="footer-badge">⚛️ React</span>
         </p>
       </div>
     </div>
